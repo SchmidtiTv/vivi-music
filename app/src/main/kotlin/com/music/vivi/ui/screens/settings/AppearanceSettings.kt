@@ -108,7 +108,6 @@ import com.music.vivi.constants.ThumbnailCornerRadiusKey
 import com.music.vivi.constants.UseAppleMiniPlayerKey
 import com.music.vivi.constants.MiniPlayerInRailKey
 import com.music.vivi.constants.UseNewMiniPlayerDesignKey
-import com.music.vivi.constants.UseNewPlayerDesignKey
 import com.music.vivi.constants.UseExpressiveAlbumDesignKey
 import com.music.vivi.constants.ExpressiveSongAlbumImageKey
 import com.music.vivi.ui.component.ThumbnailCornerRadiusModal
@@ -124,6 +123,9 @@ import com.ermohdamaan.justforpixel.justforpixelexpressivelab.core.components.sl
 import com.music.vivi.ui.theme.DefaultThemeColor
 import com.music.vivi.ui.theme.PlayerSliderColors
 import com.music.vivi.ui.utils.backToMain
+import com.music.vivi.ui.player.fullscreen.PlayerThemeRegistry
+import com.music.vivi.ui.player.fullscreen.SlotPlayerTheme
+import com.music.vivi.ui.player.fullscreen.rememberPlayerTheme
 import com.music.vivi.utils.IconUtils
 import com.music.vivi.utils.rememberEnumPreference
 import com.music.vivi.utils.rememberPreference
@@ -196,22 +198,7 @@ fun AppearanceSettings(
     }
 
 
-    val (useNewPlayerDesign, onUseNewPlayerDesignChange) = rememberPreference(
-        UseNewPlayerDesignKey,
-        defaultValue = false
-    )
-    val (usePlayerV2, onUsePlayerV2Change) = rememberPreference(
-        com.music.vivi.constants.UsePlayerV2Key,
-        defaultValue = false
-    )
-    
-    val currentPlayerDesign = remember(useNewPlayerDesign, usePlayerV2) {
-        when {
-            usePlayerV2 -> PlayerDesignOption.V2
-            useNewPlayerDesign -> PlayerDesignOption.NEW
-            else -> PlayerDesignOption.CLASSIC
-        }
-    }
+    val (playerTheme, onPlayerThemeChange) = rememberPlayerTheme()
     var showPlayerDesignDialog by rememberSaveable { mutableStateOf(false) }
     
     val (useExpressiveAlbumDesign, onUseExpressiveAlbumDesignChange) = rememberPreference(
@@ -386,8 +373,8 @@ fun AppearanceSettings(
 
     val availableBackgroundStyles = PlayerBackgroundStyle.entries.filter {
         val blurSupported = it != PlayerBackgroundStyle.BLUR || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-        val notAppleOnV2 = !(it == PlayerBackgroundStyle.APPLE_MUSIC && currentPlayerDesign == PlayerDesignOption.V2)
-        blurSupported && notAppleOnV2
+        val appleMusicSupported = it != PlayerBackgroundStyle.APPLE_MUSIC || playerTheme.supportsAppleMusicBackground
+        blurSupported && appleMusicSupported
     }
 
     val availableMiniPlayerBackgroundStyles = availableBackgroundStyles.filter { 
@@ -405,36 +392,17 @@ fun AppearanceSettings(
     if (showPlayerDesignDialog) {
         EnumDialog(
             onDismiss = { showPlayerDesignDialog = false },
-            onSelect = { option ->
-                when (option) {
-                    PlayerDesignOption.CLASSIC -> {
-                        onUsePlayerV2Change(false)
-                        onUseNewPlayerDesignChange(false)
-                    }
-                    PlayerDesignOption.NEW -> {
-                        onUsePlayerV2Change(false)
-                        onUseNewPlayerDesignChange(true)
-                    }
-                    PlayerDesignOption.V2 -> {
-                        onUsePlayerV2Change(true)
-                        onUseNewPlayerDesignChange(false)
-                        if (playerBackground == PlayerBackgroundStyle.APPLE_MUSIC) {
-                            onPlayerBackgroundChange(PlayerBackgroundStyle.DEFAULT)
-                        }
-                    }
+            onSelect = { theme ->
+                onPlayerThemeChange(theme)
+                if (!theme.supportsAppleMusicBackground && playerBackground == PlayerBackgroundStyle.APPLE_MUSIC) {
+                    onPlayerBackgroundChange(PlayerBackgroundStyle.DEFAULT)
                 }
                 showPlayerDesignDialog = false
             },
             title = stringResource(R.string.player),
-            current = currentPlayerDesign,
-            values = PlayerDesignOption.values().toList(),
-            valueText = {
-                when (it) {
-                    PlayerDesignOption.CLASSIC -> stringResource(R.string.classic_player)
-                    PlayerDesignOption.NEW -> stringResource(R.string.new_player_design)
-                    PlayerDesignOption.V2 -> stringResource(R.string.player_v2)
-                }
-            }
+            current = playerTheme,
+            values = PlayerThemeRegistry.themes,
+            valueText = { stringResource(it.nameRes) }
         )
     }
 
@@ -1314,13 +1282,7 @@ fun AppearanceSettings(
                     icon = painterResource(R.drawable.palette),
                     title = { Text(stringResource(R.string.player_design)) },
                     trailingContent = {
-                        Text(
-                            when (currentPlayerDesign) {
-                                PlayerDesignOption.CLASSIC -> stringResource(R.string.classic_player)
-                                PlayerDesignOption.NEW -> stringResource(R.string.new_player_design)
-                                PlayerDesignOption.V2 -> stringResource(R.string.player_v2)
-                            }
-                        )
+                        Text(stringResource(playerTheme.nameRes))
                     },
                     onClick = { showPlayerDesignDialog = true }
                 ),
@@ -1341,7 +1303,7 @@ fun AppearanceSettings(
                     },
                     onClick = { showPlayerBackgroundDialog = true }
                 ),
-                if (!useNewPlayerDesign && !usePlayerV2) {
+                if ((playerTheme as? SlotPlayerTheme)?.hasTimeBadge == true) {
                     Material3SettingsItem(
                         icon = painterResource(R.drawable.tune),
                         title = { Text(stringResource(R.string.show_audio_quality_badge)) },
@@ -2178,12 +2140,6 @@ enum class PlayerTextAlignment {
     CENTER,
 }
 
-
-enum class PlayerDesignOption {
-    CLASSIC
-    ,NEW
-    ,V2
-}
 
 enum class MiniPlayerDesignOption {
     CLASSIC,

@@ -2,7 +2,7 @@
  * vivimusic Project (C) 2026
  * Licensed under GPL-3.0 | See git history for contributors
  */
-package com.music.vivi.ui.player
+package com.music.vivi.ui.player.fullscreen.applemusicv17
 
 import android.app.Activity
 import android.content.BroadcastReceiver
@@ -62,6 +62,9 @@ import com.music.vivi.constants.KeepScreenOn
 import com.music.vivi.models.MediaMetadata
 import com.music.vivi.ui.component.BottomSheetState
 import com.music.vivi.ui.component.PlayerSliderTrack
+import com.music.vivi.ui.player.QueueV2
+import com.music.vivi.ui.player.fullscreen.StandalonePlayerTheme
+import com.music.vivi.ui.player.customSoftShadow
 import com.music.vivi.ui.theme.PlayerSliderColors
 import com.music.vivi.utils.makeTimeString
 import com.music.vivi.utils.rememberEnumPreference
@@ -91,11 +94,22 @@ import com.music.vivi.listentogether.RoomRole
 import com.music.vivi.utils.rememberPreference
 import kotlinx.coroutines.launch
 
+object AppleMusicV17PlayerTheme : StandalonePlayerTheme {
+    override val id = "applemusicv17"
+    override val nameRes = R.string.player_v2
+    override val supportsAppleMusicBackground = false
+
+    @Composable
+    override fun Content(state: BottomSheetState, navController: NavController, modifier: Modifier) {
+        AppleMusicV17Player(state, navController, modifier)
+    }
+}
+
 enum class PlayerInternalState { COVER, LYRICS, QUEUE }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun PlayerV2(
+fun AppleMusicV17Player(
     state: BottomSheetState,
     navController: NavController,
     modifier: Modifier = Modifier
@@ -367,7 +381,7 @@ fun PlayerV2(
             }
     ) {
         if (isLandscape) {
-            PlayerV2Landscape(
+            AppleMusicV17PlayerLandscape(
                 state = state,
                 navController = navController,
                 modifier = modifier
@@ -477,7 +491,7 @@ fun PlayerV2(
                                         // Fix 4: Always render canvas (don't gate on transition state).
                                         // The previous guard caused a visible pop/snap when the
                                         // transition completed and the canvas suddenly appeared.
-                                        PlayerV2Motionartowek(
+                                        AppleMusicV17Motionartwork(
                                             mediaMetadata = mediaMetadata,
                                             isPlaying = isPlaying,
                                             modifier = Modifier.fillMaxSize()

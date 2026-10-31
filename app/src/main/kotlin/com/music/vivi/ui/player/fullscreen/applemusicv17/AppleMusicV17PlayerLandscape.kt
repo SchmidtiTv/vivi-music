@@ -2,7 +2,7 @@
  * vivimusic Project (C) 2026
  * Licensed under GPL-3.0 | See git history for contributors
  */
-package com.music.vivi.ui.player
+package com.music.vivi.ui.player.fullscreen.applemusicv17
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -67,6 +67,8 @@ import com.music.vivi.ui.component.LyricsV2
 import com.music.vivi.ui.component.PlayerSliderTrack
 import com.music.vivi.ui.menu.LyricsMenu
 import com.music.vivi.ui.menu.OldPlayerMenu
+import com.music.vivi.ui.player.QueueV2
+import com.music.vivi.ui.player.customSoftShadow
 import com.music.vivi.ui.theme.PlayerSliderColors
 import com.music.vivi.ui.utils.ShowMediaInfo
 import com.music.vivi.ui.utils.ShowOffsetDialog
@@ -81,7 +83,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @Composable
-fun PlayerV2Landscape(
+fun AppleMusicV17PlayerLandscape(
     state: BottomSheetState,
     navController: NavController,
     modifier: Modifier = Modifier
@@ -380,7 +382,7 @@ fun PlayerV2Landscape(
                             },
                         contentScale = if (cropAlbumArt) ContentScale.Crop else ContentScale.Fit
                     )
-                    PlayerV2Motionartowek(
+                    AppleMusicV17Motionartwork(
                         mediaMetadata = mediaMetadata,
                         isPlaying = isPlaying,
                         modifier = Modifier.fillMaxSize()
@@ -698,7 +700,7 @@ fun PlayerV2Landscape(
                                     )
                                 }
 
-                                // Play / Pause (matching portrait PlayerV2)
+                                // Play / Pause (matching portrait AppleMusicV17Player)
                                 IconButton(
                                     onClick = {
                                         if (isListenTogetherGuest) {

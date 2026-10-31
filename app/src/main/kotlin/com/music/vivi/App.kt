@@ -40,6 +40,7 @@ import com.music.vivi.utils.cipher.CipherDeobfuscator
 import com.music.vivi.utils.dataStore
 import com.music.vivi.utils.normalizeDataSyncId
 import com.music.vivi.utils.reportException
+import com.music.vivi.ui.player.fullscreen.PlayerThemeRegistry
 import com.music.vivi.ui.utils.isDataSaverEnabled
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -84,6 +85,8 @@ class App : Application(), SingletonImageLoader.Factory {
 
         // تهيئة إعدادات التطبيق عند الإقلاع
         applicationScope.launch {
+            runCatching { dataStore.edit { PlayerThemeRegistry.migrateLegacySettings(it) } }
+                .onFailure(::reportException)
             initializeSettings()
             observeSettingsChanges()
         }

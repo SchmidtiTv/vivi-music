@@ -2,7 +2,7 @@
  * vivimusic Project (C) 2026
  * Licensed under GPL-3.0 | See git history for contributors
  */
-package com.music.vivi.ui.player
+package com.music.vivi.ui.player.fullscreen.applemusicv17
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -14,6 +14,8 @@ import com.music.vivi.Motionartwork.vivimusic.ViviMusicMotionartworkProvider
 import com.music.vivi.constants.MotionartworkSource
 import com.music.vivi.constants.MotionartworkSourceKey
 import com.music.vivi.models.MediaMetadata
+import com.music.vivi.ui.player.MotionartworkPlaybackCache
+import com.music.vivi.ui.player.MotionartworkPlayer
 import com.music.vivi.utils.rememberEnumPreference
 import com.music.vivi.utils.rememberPreference
 import com.music.vivi.constants.CanvasThumbnailAnimationKey
@@ -24,7 +26,7 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 @Composable
-fun PlayerV2Motionartowek(
+fun AppleMusicV17Motionartwork(
     mediaMetadata: MediaMetadata?,
     isPlaying: Boolean,
     modifier: Modifier = Modifier
