@@ -8,6 +8,17 @@ package com.music.vivi.ui.component
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.WideNavigationRailDefaults
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -59,9 +70,10 @@ fun AppNavigationRail(
     onItemClick: (Screens, Boolean) -> Unit,
     modifier: Modifier = Modifier,
     pureBlack: Boolean = false,
-    onSearchLongClick: (() -> Unit)? = null
+    onSearchLongClick: (() -> Unit)? = null,
+    footer: (@Composable () -> Unit)? = null,
 ) {
-    val containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer
+    val containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface
     val haptics = LocalHapticFeedback.current
     val viewConfiguration = LocalViewConfiguration.current
     
@@ -69,7 +81,15 @@ fun AppNavigationRail(
         modifier = modifier,
         color = containerColor
     ) {
-        WideNavigationRail {
+        Column(
+            modifier = Modifier.fillMaxHeight(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+        WideNavigationRail(
+            modifier = Modifier.weight(1f),
+            colors = WideNavigationRailDefaults.colors(containerColor = Color.Transparent),
+            windowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Start),
+        ) {
         
         navigationItems.forEach { screen ->
             val isSelected = remember(currentRoute, screen.route) {
@@ -134,6 +154,16 @@ fun AppNavigationRail(
             )
         }
         
+        }
+        footer?.let {
+            Box(
+                Modifier
+                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
+                    .padding(bottom = 16.dp)
+            ) {
+                it()
+            }
+        }
         }
     }
 }

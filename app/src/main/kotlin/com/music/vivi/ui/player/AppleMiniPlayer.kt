@@ -4,7 +4,6 @@
  */
 package com.music.vivi.ui.player
 
-import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -36,7 +35,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -58,6 +56,7 @@ import com.music.vivi.models.MediaMetadata
 import com.music.vivi.playback.CastConnectionHandler
 import com.music.vivi.playback.PlayerConnection
 import com.music.vivi.ui.screens.settings.DarkMode
+import com.music.vivi.ui.utils.LocalAdaptiveLayout
 import com.music.vivi.utils.rememberEnumPreference
 import com.music.vivi.utils.rememberPreference
 import kotlinx.coroutines.launch
@@ -69,7 +68,9 @@ import com.music.vivi.ui.component.Icon as MIcon
 @Composable
 fun AppleMiniPlayer(
     progressState: ProgressState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    vertical: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     
@@ -112,10 +113,7 @@ fun AppleMiniPlayer(
     val layoutDirection = LocalLayoutDirection.current
     val coroutineScope = rememberCoroutineScope()
     
-    val configuration = LocalConfiguration.current
-    val isTabletLandscape = remember(configuration.screenWidthDp, configuration.orientation) {
-        configuration.screenWidthDp >= 600 && configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    }
+    val constrainWidth = LocalAdaptiveLayout.current.constrainMiniPlayer
 
     // Swipe animation state
     val offsetXAnimatable = remember { Animatable(0f) }
@@ -146,6 +144,163 @@ fun AppleMiniPlayer(
     val outlineColor = if (isDynamicBackground) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outline
     val onSurfaceColor = if (isDynamicBackground) Color.White else MaterialTheme.colorScheme.onSurface
     val errorColor = MaterialTheme.colorScheme.error
+
+
+    val pill: @Composable (Modifier) -> Unit = { pillModifier ->
+        Box(
+            modifier = pillModifier
+                .clip(RoundedCornerShape(8.dp)) // Apple rectangular shape with slightly rounded corners
+                .background(color = backgroundColor)
+                .miniPlayerClick(onClick)
+        ) {
+            // Background Layers
+            Box(Modifier.matchParentSize()) {
+                MiniPlayerBackgroundLayer(
+                    style = miniPlayerBackground,
+                    mediaMetadata = mediaMetadata,
+                    gradientColors = gradientColors
+                )
+            }
+
+            // Bottom Progress Bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .align(Alignment.BottomCenter)
+                    .drawWithContent {
+                        val progress = progressState.progress
+                        val trackColor = outlineColor.copy(alpha = 0.2f)
+                        drawRect(trackColor)
+                        drawRect(primaryColor, size = Size(size.width * progress, size.height))
+                    }
+            )
+
+            MiniPlayerLayout(
+                vertical = vertical,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 5.dp),
+                artworkGap = 12.dp,
+                actionsGap = 8.dp,
+                artwork = {
+                    // Cookie 4-Sided Thumbnail
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(MaterialShapes.Cookie4Sided.toShape())
+                            .background(color = outlineColor.copy(alpha = 0.2f))
+                    ) {
+                        mediaMetadata?.let { metadata ->
+                            val isYtThumbnail = remember(metadata.thumbnailUrl) {
+                                metadata.thumbnailUrl?.let { it.contains("ytimg") || it.contains("/vi/") || it.contains("youtube.com") } == true
+                            }
+                            AsyncImage(
+                                model = metadata.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = if (cropAlbumArt) ContentScale.Crop else ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer {
+                                        if (cropAlbumArt && isYtThumbnail) {
+                                            scaleX = 4f / 3f
+                                            scaleY = 4f / 3f
+                                        }
+                                    }
+                            )
+                        }
+                    }
+                },
+                info = { infoModifier ->
+                    MiniPlayerSongInfo(
+                        mediaMetadata = mediaMetadata,
+                        onSurfaceColor = onSurfaceColor,
+                        errorColor = errorColor,
+                        centered = vertical,
+                        modifier = infoModifier
+                    )
+                },
+                actions = {
+                    // Cast indicator
+                    if (isCasting) {
+                        Icon(
+                            painter = painterResource(R.drawable.cast_connected),
+                            contentDescription = "Casting",
+                            tint = primaryColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                    }
+
+                    // Play/Pause Button
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable {
+                                if (isListenTogetherGuest) {
+                                    playerConnection.toggleMute()
+                                    return@clickable
+                                }
+                                if (isCasting) {
+                                    val castIsPlaying = castHandler?.castIsPlaying?.value ?: false
+                                    if (castIsPlaying) castHandler?.pause() else castHandler?.play()
+                                } else if (playbackState == Player.STATE_ENDED) {
+                                    playerConnection.player.seekTo(0, 0)
+                                    playerConnection.player.playWhenReady = true
+                                } else {
+                                    playerConnection.togglePlayPause()
+                                }
+                            }
+                    ) {
+                        val isPlaying by playerConnection.isPlaying.collectAsState()
+                        val castIsPlaying by castHandler?.castIsPlaying?.collectAsState() ?: remember { mutableStateOf(false) }
+                        val effectiveIsPlaying = if (isCasting) castIsPlaying else isPlaying
+                        val isMuted by playerConnection.isMuted.collectAsState()
+
+                        Icon(
+                            painter = painterResource(
+                                when {
+                                    isListenTogetherGuest -> if (isMuted) R.drawable.volume_off else R.drawable.volume_up
+                                    playbackState == Player.STATE_ENDED -> R.drawable.replay
+                                    effectiveIsPlaying -> R.drawable.pause_applemusic
+                                    else -> R.drawable.play_applemusic
+                                }
+                            ),
+                            contentDescription = null,
+                            tint = onSurfaceColor,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.size(8.dp))
+
+                    // Next Button
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = canSkipNext && !isListenTogetherGuest) {
+                                playerConnection.seekToNext()
+                            }
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.apple_skip_next),
+                            contentDescription = "Next",
+                            tint = if (canSkipNext && !isListenTogetherGuest) onSurfaceColor else onSurfaceColor.copy(alpha = 0.3f),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                },
+            )
+        }
+    }
+
+    if (vertical) {
+        pill(modifier.width(RailMiniPlayerWidth))
+        return
+    }
 
     Box(
         modifier = modifier
@@ -222,190 +377,11 @@ fun AppleMiniPlayer(
                 } else baseModifier
             }
     ) {
-        Box(
-            modifier = Modifier
-                .then(if (isTabletLandscape) Modifier.width(500.dp).align(Alignment.Center) else Modifier.fillMaxWidth())
+        pill(
+            Modifier
+                .then(if (constrainWidth) Modifier.width(500.dp).align(Alignment.Center) else Modifier.fillMaxWidth())
                 .height(64.dp)
                 .offset { IntOffset(offsetXAnimatable.value.roundToInt(), 0) }
-                .clip(RoundedCornerShape(8.dp)) // Apple rectangular shape with slightly rounded corners
-                .background(color = backgroundColor)
-        ) {
-            // Background Layers
-            MiniPlayerBackgroundLayer(
-                style = miniPlayerBackground,
-                mediaMetadata = mediaMetadata,
-                gradientColors = gradientColors
-            )
-
-            // Bottom Progress Bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .align(Alignment.BottomCenter)
-                    .drawWithContent {
-                        val progress = progressState.progress
-                        val trackColor = outlineColor.copy(alpha = 0.2f)
-                        drawRect(trackColor)
-                        drawRect(primaryColor, size = Size(size.width * progress, size.height))
-                    }
-            )
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 5.dp),
-            ) {
-                // Cookie 4-Sided Thumbnail
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(54.dp)
-                        .clip(MaterialShapes.Cookie4Sided.toShape())
-                        .background(color = outlineColor.copy(alpha = 0.2f))
-                ) {
-                    mediaMetadata?.let { metadata ->
-                        val isYtThumbnail = remember(metadata.thumbnailUrl) {
-                            metadata.thumbnailUrl?.let { it.contains("ytimg") || it.contains("/vi/") || it.contains("youtube.com") } == true
-                        }
-                        AsyncImage(
-                            model = metadata.thumbnailUrl,
-                            contentDescription = null,
-                            contentScale = if (cropAlbumArt) ContentScale.Crop else ContentScale.Fit,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer {
-                                    if (cropAlbumArt && isYtThumbnail) {
-                                        scaleX = 4f / 3f
-                                        scaleY = 4f / 3f
-                                    }
-                                }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Song info - title and artist
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    val error by LocalPlayerConnection.current?.error?.collectAsState() ?: remember { mutableStateOf(null) }
-                    
-                    mediaMetadata?.let { metadata ->
-                        Text(
-                            text = metadata.title,
-                            color = onSurfaceColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (metadata.explicit) MIcon.Explicit()
-                            if (metadata.artists.any { it.name.isNotBlank() }) {
-                                Text(
-                                    text = metadata.artists.joinToString { it.name },
-                                    color = onSurfaceColor.copy(alpha = 0.7f),
-                                    fontSize = 12.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
-                                )
-                            }
-                        }
-
-                        AnimatedVisibility(visible = error != null, enter = fadeIn(), exit = fadeOut()) {
-                            Text(
-                                text = stringResource(R.string.error_playing),
-                                color = errorColor,
-                                fontSize = 10.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Cast indicator
-                if (isCasting) {
-                    Icon(
-                        painter = painterResource(R.drawable.cast_connected),
-                        contentDescription = "Casting",
-                        tint = primaryColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-
-                // Play/Pause Button
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable {
-                            if (isListenTogetherGuest) {
-                                playerConnection.toggleMute()
-                                return@clickable
-                            }
-                            if (isCasting) {
-                                val castIsPlaying = castHandler?.castIsPlaying?.value ?: false
-                                if (castIsPlaying) castHandler?.pause() else castHandler?.play()
-                            } else if (playbackState == Player.STATE_ENDED) {
-                                playerConnection.player.seekTo(0, 0)
-                                playerConnection.player.playWhenReady = true
-                            } else {
-                                playerConnection.togglePlayPause()
-                            }
-                        }
-                ) {
-                    val isPlaying by playerConnection.isPlaying.collectAsState()
-                    val castIsPlaying by castHandler?.castIsPlaying?.collectAsState() ?: remember { mutableStateOf(false) }
-                    val effectiveIsPlaying = if (isCasting) castIsPlaying else isPlaying
-                    val isMuted by playerConnection.isMuted.collectAsState()
-
-                    Icon(
-                        painter = painterResource(
-                            when {
-                                isListenTogetherGuest -> if (isMuted) R.drawable.volume_off else R.drawable.volume_up
-                                playbackState == Player.STATE_ENDED -> R.drawable.replay
-                                effectiveIsPlaying -> R.drawable.pause_applemusic
-                                else -> R.drawable.play_applemusic
-                            }
-                        ),
-                        contentDescription = null,
-                        tint = onSurfaceColor,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Next Button
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(enabled = canSkipNext && !isListenTogetherGuest) {
-                            playerConnection.seekToNext()
-                        }
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.apple_skip_next),
-                        contentDescription = "Next",
-                        tint = if (canSkipNext && !isListenTogetherGuest) onSurfaceColor else onSurfaceColor.copy(alpha = 0.3f),
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-        }
+        )
     }
 }

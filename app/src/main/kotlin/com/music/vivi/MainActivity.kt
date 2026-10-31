@@ -85,6 +85,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -104,7 +105,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -156,6 +156,7 @@ import com.music.vivi.constants.MiniPlayerBottomSpacing
 import com.music.vivi.constants.MiniPlayerHeight
 import com.music.vivi.constants.NavigationBarAnimationSpec
 import com.music.vivi.constants.NavigationBarHeight
+import com.music.vivi.constants.NavigationRailWidth
 import com.music.vivi.vivimusic.updater.checkForUpdate
 import com.music.vivi.vivimusic.updater.getAutoUpdateCheckSetting
 import com.music.vivi.vivimusic.updater.isNewerVersion
@@ -179,6 +180,7 @@ import com.music.vivi.constants.FloatingNavBarKey
 import com.music.vivi.constants.StopMusicOnTaskClearKey
 import com.music.vivi.constants.UseNewMiniPlayerDesignKey
 import com.music.vivi.constants.UseAppleMiniPlayerKey
+import com.music.vivi.constants.MiniPlayerInRailKey
 import com.music.vivi.db.MusicDatabase
 import com.music.vivi.db.entities.SearchHistory
 import com.music.vivi.extensions.toEnum
@@ -190,6 +192,7 @@ import com.music.vivi.playback.PlayerConnection
 import com.music.vivi.playback.queues.YouTubeQueue
 import com.music.vivi.ui.component.AppNavigationBar
 import com.music.vivi.ui.component.AppNavigationRail
+import com.music.vivi.ui.player.RailMiniPlayer
 import com.music.vivi.ui.component.BottomSheetMenu
 import com.music.vivi.ui.component.BottomSheetPage
 import com.music.vivi.ui.component.LocalBottomSheetPageState
@@ -207,8 +210,10 @@ import com.music.vivi.ui.theme.ColorSaver
 import com.music.vivi.ui.theme.DefaultThemeColor
 import com.music.vivi.ui.theme.vivimusicTheme
 import com.music.vivi.ui.theme.extractThemeColor
+import com.music.vivi.ui.utils.LocalAdaptiveLayout
 import com.music.vivi.ui.utils.appBarScrollBehavior
 import com.music.vivi.ui.utils.resetHeightOffset
+import com.music.vivi.ui.utils.rememberAdaptiveLayout
 import com.music.vivi.utils.SyncUtils
 import com.music.vivi.utils.dataStore
 import com.music.vivi.utils.get
@@ -677,7 +682,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 val focusManager = LocalFocusManager.current
                 val density = LocalDensity.current
-                val configuration = LocalWindowInfo.current
+                val adaptiveLayout = rememberAdaptiveLayout()
                 val cutoutInsets = WindowInsets.displayCutout
                 val windowsInsets = WindowInsets.systemBars
                 val bottomInset = with(density) { windowsInsets.getBottom(density).toDp() }
@@ -707,6 +712,7 @@ class MainActivity : ComponentActivity() {
                 val (floatingNav) = rememberPreference(FloatingNavBarKey, defaultValue = false)
                 val (useNewMiniPlayerDesign) = rememberPreference(UseNewMiniPlayerDesignKey, defaultValue = true)
                 val (useAppleMiniPlayer) = rememberPreference(UseAppleMiniPlayerKey, defaultValue = false)
+                val (miniPlayerInRailPref) = rememberPreference(MiniPlayerInRailKey, defaultValue = true)
                 val defaultOpenTab = remember {
                     dataStore[DefaultOpenTabKey].toEnum(defaultValue = NavigationTab.HOME)
                 }
@@ -765,9 +771,8 @@ class MainActivity : ComponentActivity() {
                         currentRoute!!.startsWith("search/")
                 }
 
-                val isLandscape = configuration.containerDpSize.width > configuration.containerDpSize.height
-
-                val showRail = isLandscape && !inSearchScreen
+                val showRail = adaptiveLayout.useNavRail
+                val miniPlayerInRail = showRail && adaptiveLayout.miniPlayerInRail && miniPlayerInRailPref
 
                 val navPadding = if (shouldShowNavigationBar && !showRail) {
                     if (slimNav) SlimNavBarHeight else NavigationBarHeight
@@ -787,15 +792,18 @@ class MainActivity : ComponentActivity() {
                     label = "snackbarHeight"
                 )
 
+                // When the mini player lives in the rail, the collapsed sheet is hidden.
                 val playerBottomSheetState = rememberBottomSheetState(
                     dismissedBound = 0.dp,
-                    collapsedBound = bottomInset +
+                    collapsedBound = if (miniPlayerInRail) 0.dp else bottomInset +
                         (if (!showRail && shouldShowNavigationBar) navPadding else 0.dp) +
                         extraSnackbarHeight +
                         (if (useNewMiniPlayerDesign || useAppleMiniPlayer) MiniPlayerBottomSpacing else 0.dp) +
                         MiniPlayerHeight,
                     expandedBound = maxHeight,
                 )
+                val playerPositionState = remember { mutableLongStateOf(0L) }
+                val playerDurationState = remember { mutableLongStateOf(0L) }
 
                 val playerAwareWindowInsets = remember(
                     bottomInset,
@@ -987,6 +995,7 @@ class MainActivity : ComponentActivity() {
                     LocalSyncUtils provides syncUtils,
                     LocalListenTogetherManager provides listenTogetherManager,
                     LocalSnackbarHostState provides snackbarHostState,
+                    LocalAdaptiveLayout provides adaptiveLayout,
                 ) {
                     Scaffold(
                         containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface,
@@ -1100,7 +1109,7 @@ class MainActivity : ComponentActivity() {
                                         ),
                                         modifier = Modifier.windowInsetsPadding(
                                             if (showRail) {
-                                                WindowInsets(left = NavigationBarHeight)
+                                                WindowInsets(left = NavigationRailWidth)
                                                     .add(cutoutInsets.only(WindowInsetsSides.Start))
                                             } else {
                                                 cutoutInsets.only(WindowInsetsSides.Start + WindowInsetsSides.End)
@@ -1150,7 +1159,9 @@ class MainActivity : ComponentActivity() {
                                     BottomSheetPlayer(
                                         state = playerBottomSheetState,
                                         navController = navController,
-                                        pureBlack = pureBlack
+                                        pureBlack = pureBlack,
+                                        positionState = playerPositionState,
+                                        durationState = playerDurationState,
                                     )
 
                                     val snackbarBottomPadding = remember(bottomInset, shouldShowNavigationBar, slimNav) {
@@ -1228,7 +1239,9 @@ class MainActivity : ComponentActivity() {
                                     BottomSheetPlayer(
                                         state = playerBottomSheetState,
                                         navController = navController,
-                                        pureBlack = pureBlack
+                                        pureBlack = pureBlack,
+                                        positionState = playerPositionState,
+                                        durationState = playerDurationState,
                                     )
                                 }
 
@@ -1288,7 +1301,16 @@ class MainActivity : ComponentActivity() {
                                     currentRoute = currentRoute,
                                     onItemClick = onRailItemClick,
                                     pureBlack = pureBlack,
-                                    onSearchLongClick = onRailSearchLongClick
+                                    onSearchLongClick = onRailSearchLongClick,
+                                    footer = {
+                                        if (miniPlayerInRail) {
+                                            RailMiniPlayer(
+                                                positionState = playerPositionState,
+                                                durationState = playerDurationState,
+                                                onClick = playerBottomSheetState::expandSoft,
+                                            )
+                                        }
+                                    },
                                 )
                             }
                             Box(Modifier.weight(1f)) {
