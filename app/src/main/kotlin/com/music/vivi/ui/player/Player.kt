@@ -9,7 +9,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.content.res.Configuration
 import android.view.WindowManager
 import android.widget.Toast
 import android.content.BroadcastReceiver
@@ -93,6 +92,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.MutableLongState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -121,7 +121,6 @@ import coil3.size.Size as CoilSize
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -210,6 +209,7 @@ import com.music.vivi.ui.component.VolumeSlider
 import com.music.vivi.ui.screens.settings.DarkMode
 import com.music.vivi.ui.theme.PlayerColorExtractor
 import com.music.vivi.ui.theme.PlayerSliderColors
+import com.music.vivi.ui.utils.LocalAdaptiveLayout
 import com.music.vivi.ui.utils.ShowMediaInfo
 import com.music.vivi.ui.utils.ShowOffsetDialog
 import com.music.vivi.utils.makeTimeString
@@ -263,6 +263,9 @@ fun BottomSheetPlayer(
     navController: NavController,
     modifier: Modifier = Modifier,
     pureBlack: Boolean,
+    positionState: MutableLongState = remember { mutableLongStateOf(0L) },
+    durationState: MutableLongState = remember { mutableLongStateOf(0L) },
+    slideFromStart: Boolean = false,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -414,9 +417,6 @@ fun BottomSheetPlayer(
 
     // Use State objects for position/duration to pass to MiniPlayer without causing recomposition
     // These states persist across playback state changes to ensure continuous progress updates
-    val positionState = remember { mutableLongStateOf(0L) }
-    val durationState = remember { mutableLongStateOf(0L) }
-    
     // Convenience accessors for local use
     var position by positionState
     var duration by durationState
@@ -970,9 +970,17 @@ fun BottomSheetPlayer(
 
     val backgroundAlpha = state.progress.coerceIn(0f, 1f)
 
+    // Pull-down-to-collapse is vertical only, so it's off when the sheet slides in from the side.
+    val sheetNestedScroll = if (slideFromStart) {
+        Modifier
+    } else {
+        Modifier.nestedScroll(state.preUpPostDownNestedScrollConnection)
+    }
+
     BottomSheet(
         state = state,
         modifier = modifier,
+        slideFromStart = slideFromStart,
         background = {
             Box(
                 modifier = Modifier
@@ -2637,8 +2645,8 @@ fun BottomSheetPlayer(
             }
         }
 
-        when (LocalConfiguration.current.orientation) {
-            Configuration.ORIENTATION_LANDSCAPE -> {
+        when (LocalAdaptiveLayout.current.playerSideBySide) {
+            true -> {
                 // Calculate vertical padding like OuterTune
                 val density = LocalDensity.current
                 val verticalPadding = max(
@@ -2660,7 +2668,7 @@ fun BottomSheetPlayer(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .weight(1f)
-                            .nestedScroll(state.preUpPostDownNestedScrollConnection)
+                            .then(sheetNestedScroll)
                     ) {
                         // Remember lambdas to prevent unnecessary recomposition
                         val currentSliderPosition by rememberUpdatedState(sliderPosition)
@@ -2742,7 +2750,7 @@ fun BottomSheetPlayer(
                             } else if (spotifyCanvasUrl == null && playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
                                 Thumbnail(
                                     sliderPositionProvider = sliderPositionProvider,
-                                    modifier = Modifier.nestedScroll(state.preUpPostDownNestedScrollConnection),
+                                    modifier = sheetNestedScroll,
                                     isPlayerExpanded = isExpandedProvider,
                                     isListenTogetherGuest = isListenTogetherGuest
                                 )

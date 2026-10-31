@@ -469,6 +469,8 @@
     <string name="miniplayer_background_style">Mini-player background style</string>
     <string name="pure_black_mini_player">Pure black mini-player</string>
     <string name="mini_player_outline">Mini-player outline</string>
+    <string name="mini_player_in_rail">Mini-player in sidebar</string>
+    <string name="mini_player_in_rail_desc">On tablets, show the mini-player vertically in the navigation sidebar instead of along the bottom</string>
     <string name="cache_size_warning_title">Hold on!</string>
     <string name="cache_size_warning_message">You\'ve chosen a cache size limit smaller than what the app is currently using (%1$s). If you continue, the app may remove some cached %2$s to match the new limit. Proceed anyway?</string>
     <string name="cache_size_warning_confirm">Continue</string>
