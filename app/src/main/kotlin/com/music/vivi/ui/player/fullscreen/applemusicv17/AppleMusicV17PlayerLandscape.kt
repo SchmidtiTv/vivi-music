@@ -2,7 +2,7 @@
  * vivimusic Project (C) 2026
  * Licensed under GPL-3.0 | See git history for contributors
  */
-package com.music.vivi.ui.player
+package com.music.vivi.ui.player.fullscreen.applemusicv17
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -82,6 +82,8 @@ import com.music.vivi.listentogether.RoomRole
 import com.music.vivi.models.MediaMetadata
 import com.music.vivi.playback.CastConnectionHandler
 import com.music.vivi.ui.component.BottomSheetState
+import com.music.vivi.ui.player.Blendingimage
+import com.music.vivi.ui.player.customSoftShadow
 import com.music.vivi.ui.component.CastButton
 import com.music.vivi.ui.component.LocalBottomSheetPageState
 import com.music.vivi.ui.component.LocalMenuState
@@ -104,7 +106,7 @@ import kotlinx.coroutines.launch
 import com.music.vivi.ui.screens.settings.integrations.ListenTogetherAvatarList
 
 @Composable
-fun PlayerV2Landscape(
+fun AppleMusicV17PlayerLandscape(
     state: BottomSheetState,
     navController: NavController,
     modifier: Modifier = Modifier
@@ -606,7 +608,7 @@ fun PlayerV2Landscape(
                         modifier = Modifier.fillMaxSize()
                     )
                     if (toCoverUrl == null) {
-                        PlayerV2Motionartowek(
+                        AppleMusicV17Motionartwork(
                             mediaMetadata = displayedMetadata,
                             isPlaying = isPlaying,
                             modifier = Modifier.fillMaxSize()
@@ -1305,8 +1307,8 @@ fun PlayerV2Landscape(
                     }
 
                     PlayerInternalState.QUEUE -> {
-                        // In landscape, when queue pressed: pure QueueV2, NO top header with song name/star/more
-                        QueueV2(
+                        // In landscape, when queue pressed: pure AppleMusicV17Queue, NO top header with song name/star/more
+                        AppleMusicV17Queue(
                             navController = navController,
                             playerBottomSheetState = state,
                             modifier = Modifier.fillMaxSize()

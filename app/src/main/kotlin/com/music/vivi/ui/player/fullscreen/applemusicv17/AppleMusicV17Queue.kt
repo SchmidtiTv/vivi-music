@@ -2,7 +2,7 @@
  * vivimusic Project (C) 2026
  * Licensed under GPL-3.0 | See git history for contributors
  */
-package com.music.vivi.ui.player
+package com.music.vivi.ui.player.fullscreen.applemusicv17
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
@@ -69,7 +69,7 @@ import androidx.compose.ui.draw.alpha
 import com.music.vivi.LocalListenTogetherManager
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun QueueV2(
+fun AppleMusicV17Queue(
     navController: NavController,
     playerBottomSheetState: BottomSheetState,
     modifier: Modifier = Modifier,

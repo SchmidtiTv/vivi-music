@@ -2,7 +2,7 @@
  * vivimusic Project (C) 2026
  * Licensed under GPL-3.0 | See git history for contributors
  */
-package com.music.vivi.ui.player
+package com.music.vivi.ui.player.fullscreen.applemusicv17
 
 import android.app.Activity
 import android.content.BroadcastReceiver
@@ -82,6 +82,9 @@ import com.music.vivi.constants.CrossfadeDurationKey
 import kotlin.math.roundToInt
 import com.music.vivi.models.MediaMetadata
 import com.music.vivi.ui.component.BottomSheetState
+import com.music.vivi.ui.player.Blendingimage
+import com.music.vivi.ui.player.fullscreen.StandalonePlayerTheme
+import com.music.vivi.ui.player.customSoftShadow
 import com.music.vivi.ui.component.PlayerSliderTrack
 import com.music.vivi.ui.theme.PlayerSliderColors
 import com.music.vivi.utils.makeTimeString
@@ -125,11 +128,22 @@ import kotlinx.coroutines.Job
 import com.music.vivi.ui.screens.settings.integrations.ListenTogetherAvatarList
 import android.util.Log
 import coil3.request.crossfade
+
+object AppleMusicV17PlayerTheme : StandalonePlayerTheme {
+    override val id = "applemusicv17"
+    override val nameRes = R.string.player_v2
+
+    @Composable
+    override fun Content(state: BottomSheetState, navController: NavController, modifier: Modifier) {
+        AppleMusicV17Player(state, navController, modifier)
+    }
+}
+
 enum class PlayerInternalState { COVER, LYRICS, QUEUE }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun PlayerV2(
+fun AppleMusicV17Player(
     state: BottomSheetState,
     navController: NavController,
     modifier: Modifier = Modifier
@@ -536,7 +550,7 @@ fun PlayerV2(
             }
     ) {
         if (isLandscape) {
-            PlayerV2Landscape(
+            AppleMusicV17PlayerLandscape(
                 state = state,
                 navController = navController,
                 modifier = modifier
@@ -675,7 +689,7 @@ fun PlayerV2(
                                                 modifier = Modifier.fillMaxSize()
                                             )
                                             if (toCoverUrl == null) {
-                                                PlayerV2Motionartowek(
+                                                AppleMusicV17Motionartwork(
                                                     mediaMetadata = displayedMetadata,
                                                     isPlaying = isPlaying,
                                                     modifier = Modifier.fillMaxSize()
@@ -1123,7 +1137,7 @@ fun PlayerV2(
                                             )
                                         }
                                     } else {
-                                        QueueV2(
+                                        AppleMusicV17Queue(
                                             navController = navController,
                                             playerBottomSheetState = state,
                                             modifier = Modifier.fillMaxSize(),
