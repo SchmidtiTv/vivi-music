@@ -104,6 +104,7 @@ import com.music.vivi.constants.SwipeToRemoveSongKey
 import com.music.vivi.constants.SwipeToSongKey
 import com.music.vivi.constants.ThumbnailCornerRadiusKey
 import com.music.vivi.constants.UseAppleMiniPlayerKey
+import com.music.vivi.constants.MiniPlayerInRailKey
 import com.music.vivi.constants.UseNewMiniPlayerDesignKey
 import com.music.vivi.constants.UseNewPlayerDesignKey
 import com.music.vivi.constants.UseExpressiveAlbumDesignKey
@@ -1061,6 +1062,10 @@ fun AppearanceSettings(
             PureBlackMiniPlayerKey,
             defaultValue = false
         )
+        val (miniPlayerInRail, onMiniPlayerInRailChange) = rememberPreference(
+            MiniPlayerInRailKey,
+            defaultValue = true
+        )
 
         ExpressiveSettingGroup(
             title = stringResource(id = R.string.mini_player),
@@ -1079,6 +1084,29 @@ fun AppearanceSettings(
                             )
                         },
                         onClick = { showMiniPlayerDesignDialog = true }
+                    )
+                )
+                add(
+                    Material3SettingsItem(
+                        icon = painterResource(R.drawable.nav_bar),
+                        title = { Text(stringResource(R.string.mini_player_in_rail)) },
+                        description = { Text(stringResource(R.string.mini_player_in_rail_desc)) },
+                        trailingContent = {
+                            Switch(
+                                checked = miniPlayerInRail,
+                                onCheckedChange = onMiniPlayerInRailChange,
+                                thumbContent = {
+                                    Icon(
+                                        painter = painterResource(
+                                            id = if (miniPlayerInRail) R.drawable.check else R.drawable.close
+                                        ),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(SwitchDefaults.IconSize)
+                                    )
+                                }
+                            )
+                        },
+                        onClick = { onMiniPlayerInRailChange(!miniPlayerInRail) }
                     )
                 )
                 add(

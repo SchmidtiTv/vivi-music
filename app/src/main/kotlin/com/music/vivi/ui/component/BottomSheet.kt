@@ -15,6 +15,7 @@ import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.DraggableState
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -42,7 +43,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.music.vivi.constants.NavigationBarAnimationSpec
@@ -62,9 +65,11 @@ fun BottomSheet(
     onDismiss: (() -> Unit)? = null,
     collapsedContent: @Composable BoxScope.() -> Unit,
     isExpandable: Boolean = true,
+    // Slides in from the start edge instead of the bottom (e.g. when opened from the navigation rail).
+    slideFromStart: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    val density = LocalDensity.current
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     
     Box(
         modifier = modifier
@@ -80,14 +85,40 @@ fun BottomSheet(
             .fillMaxSize()
             // Use graphicsLayer for offset to ensure hardware acceleration and 120Hz support
             .graphicsLayer {
-                val y = (state.expandedBound - state.value)
-                    .toPx()
-                    .coerceAtLeast(0f)
-                translationY = y
+                if (slideFromStart) {
+                    val x = (1f - state.progress).coerceIn(0f, 1f) * size.width
+                    translationX = if (isRtl) x else -x
+                } else {
+                    translationY = (state.expandedBound - state.value)
+                        .toPx()
+                        .coerceAtLeast(0f)
+                }
             }
-            .pointerInput(state, isExpandable) {
+            .pointerInput(state, isExpandable, slideFromStart, isRtl) {
                 if (!isExpandable) return@pointerInput
                 val velocityTracker = VelocityTracker()
+
+                if (slideFromStart) {
+                    // Map horizontal drag onto the sheet's vertical value range; dragging toward the start closes it.
+                    val scale = state.expandedBound.toPx() / size.width
+                    val direction = if (isRtl) 1f else -1f
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, dragAmount ->
+                            velocityTracker.addPointerInputChange(change)
+                            state.dispatchRawDelta(dragAmount * scale * direction)
+                        },
+                        onDragCancel = {
+                            velocityTracker.resetTracking()
+                            state.snapTo(state.collapsedBound)
+                        },
+                        onDragEnd = {
+                            val velocity = -velocityTracker.calculateVelocity().x * scale * direction
+                            velocityTracker.resetTracking()
+                            state.performFling(velocity, onDismiss)
+                        }
+                    )
+                    return@pointerInput
+                }
 
                 detectVerticalDragGestures(
                     onVerticalDrag = { change, dragAmount ->
@@ -107,7 +138,11 @@ fun BottomSheet(
             }
             .graphicsLayer {
                 val cornerRadius = if (!state.isExpanded) 16.dp.toPx() else 0f
-                shape = RoundedCornerShape(topStart = cornerRadius, topEnd = cornerRadius)
+                shape = if (slideFromStart) {
+                    RoundedCornerShape(topEnd = cornerRadius, bottomEnd = cornerRadius)
+                } else {
+                    RoundedCornerShape(topStart = cornerRadius, topEnd = cornerRadius)
+                }
                 clip = true
             }
     ) {
@@ -327,8 +362,17 @@ fun rememberBottomSheetState(
     var previousAnchor by rememberSaveable {
         mutableIntStateOf(initialAnchor)
     }
+    // Start at the restored anchor: starting at 0.dp would read as dismissed after a configuration
+    // change, and callers that collapse a dismissed sheet would then close an expanded player.
     val animatable = remember {
-        Animatable(0.dp, Dp.VectorConverter)
+        Animatable(
+            when (previousAnchor) {
+                expandedAnchor -> expandedBound
+                collapsedAnchor -> collapsedBound
+                else -> dismissedBound
+            },
+            Dp.VectorConverter
+        )
     }
 
     return remember(dismissedBound, expandedBound, collapsedBound, coroutineScope) {

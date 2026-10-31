@@ -71,6 +71,7 @@ val UseExpressiveAlbumDesignKey = booleanPreferencesKey("useExpressiveAlbumDesig
 val ExpressiveSongAlbumImageKey = booleanPreferencesKey("expressiveSongAlbumImage")
 val UseNewMiniPlayerDesignKey = booleanPreferencesKey("useNewMiniPlayerDesign")
 val UseAppleMiniPlayerKey = booleanPreferencesKey("useAppleMiniPlayer")
+val MiniPlayerInRailKey = booleanPreferencesKey("miniPlayerInRail")
 val HidePlayerThumbnailKey = booleanPreferencesKey("hidePlayerThumbnail")
 val ShowPlayerThumbnailShadowKey = booleanPreferencesKey("showPlayerThumbnailShadow")
 val PlayerThumbnailShadowElevationKey = floatPreferencesKey("playerThumbnailShadowElevation")
