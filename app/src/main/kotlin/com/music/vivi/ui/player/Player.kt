@@ -265,6 +265,7 @@ fun BottomSheetPlayer(
     pureBlack: Boolean,
     positionState: MutableLongState = remember { mutableLongStateOf(0L) },
     durationState: MutableLongState = remember { mutableLongStateOf(0L) },
+    slideFromStart: Boolean = false,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -893,9 +894,17 @@ fun BottomSheetPlayer(
 
     val backgroundAlpha = state.progress.coerceIn(0f, 1f)
 
+    // Pull-down-to-collapse is vertical only, so it's off when the sheet slides in from the side.
+    val sheetNestedScroll = if (slideFromStart) {
+        Modifier
+    } else {
+        Modifier.nestedScroll(state.preUpPostDownNestedScrollConnection)
+    }
+
     BottomSheet(
         state = state,
         modifier = modifier,
+        slideFromStart = slideFromStart,
         background = {
             Box(
                 modifier = Modifier
@@ -2707,7 +2716,7 @@ fun BottomSheetPlayer(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .weight(1f)
-                            .nestedScroll(state.preUpPostDownNestedScrollConnection)
+                            .then(sheetNestedScroll)
                     ) {
                         // Remember lambdas to prevent unnecessary recomposition
                         val currentSliderPosition by rememberUpdatedState(sliderPosition)
@@ -2789,7 +2798,7 @@ fun BottomSheetPlayer(
                             } else if (spotifyCanvasUrl == null && playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
                                 Thumbnail(
                                     sliderPositionProvider = sliderPositionProvider,
-                                    modifier = Modifier.nestedScroll(state.preUpPostDownNestedScrollConnection),
+                                    modifier = sheetNestedScroll,
                                     isPlayerExpanded = isExpandedProvider,
                                     isListenTogetherGuest = isListenTogetherGuest
                                 )

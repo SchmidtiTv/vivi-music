@@ -1242,6 +1242,7 @@ class MainActivity : ComponentActivity() {
                                         pureBlack = pureBlack,
                                         positionState = playerPositionState,
                                         durationState = playerDurationState,
+                                        slideFromStart = miniPlayerInRail,
                                     )
                                 }
 
