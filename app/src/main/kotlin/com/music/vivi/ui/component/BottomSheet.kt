@@ -362,8 +362,17 @@ fun rememberBottomSheetState(
     var previousAnchor by rememberSaveable {
         mutableIntStateOf(initialAnchor)
     }
+    // Start at the restored anchor: starting at 0.dp would read as dismissed after a configuration
+    // change, and callers that collapse a dismissed sheet would then close an expanded player.
     val animatable = remember {
-        Animatable(0.dp, Dp.VectorConverter)
+        Animatable(
+            when (previousAnchor) {
+                expandedAnchor -> expandedBound
+                collapsedAnchor -> collapsedBound
+                else -> dismissedBound
+            },
+            Dp.VectorConverter
+        )
     }
 
     return remember(dismissedBound, expandedBound, collapsedBound, coroutineScope) {
