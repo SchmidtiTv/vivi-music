@@ -2,7 +2,7 @@
  * vivimusic Project (C) 2026
  * Licensed under GPL-3.0 | See git history for contributors
  */
-package com.music.vivi.ui.player
+package com.music.vivi.ui.player.fullscreen.applemusicv17
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
@@ -41,7 +41,6 @@ import com.music.vivi.utils.rememberPreference
 import com.music.vivi.extensions.move
 import com.music.vivi.extensions.toggleRepeatMode
 import com.music.vivi.ui.component.MediaMetadataListItem
-import com.music.vivi.utils.listItemShape
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.media3.exoplayer.source.ShuffleOrder.DefaultShuffleOrder
@@ -57,12 +56,13 @@ import com.music.vivi.utils.makeTimeString
 import kotlin.math.roundToInt
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.style.TextOverflow
 import com.music.vivi.LocalListenTogetherManager
+import com.music.vivi.listentogether.RoomRole
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun QueueV2(
@@ -74,7 +74,7 @@ fun QueueV2(
     val playerConnection = LocalPlayerConnection.current ?: return
     val menuState = LocalMenuState.current
     val bottomSheetPageState = LocalBottomSheetPageState.current
-    
+
     val queueWindows by playerConnection.queueWindows.collectAsState()
     val currentWindowIndex by playerConnection.currentWindowIndex.collectAsState()
     val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
@@ -82,13 +82,13 @@ fun QueueV2(
     val isPlaying by playerConnection.isEffectivelyPlaying.collectAsState()
     val queueTitle by playerConnection.queueTitle.collectAsState()
     val radioChips by playerConnection.radioChips.collectAsState()
-    
+
     val listenTogetherManager = LocalListenTogetherManager.current
-    val listenTogetherRoleState = listenTogetherManager?.role?.collectAsState(initial = com.music.vivi.listentogether.RoomRole.NONE)
-    val isGuest = listenTogetherRoleState?.value == com.music.vivi.listentogether.RoomRole.GUEST
-    
+    val listenTogetherRoleState = listenTogetherManager?.role?.collectAsState(initial = RoomRole.NONE)
+    val isGuest = listenTogetherRoleState?.value == RoomRole.GUEST
+
     var locked by rememberPreference(QueueEditLockKey, true)
-    
+
     // Automatically lock queue for guests
     val isQueueEffectivelyLocked = locked || isGuest
 
@@ -125,13 +125,13 @@ fun QueueV2(
     val adaptiveSurface = if (playerBackground == PlayerBackgroundStyle.DEFAULT) MaterialTheme.colorScheme.surfaceVariant else Color.White.copy(alpha = 0.2f)
 
     val lazyListState = rememberLazyListState()
-    
+
     // Scroll direction tracking
     var previousIndex by remember { mutableIntStateOf(0) }
     var previousScrollOffset by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(lazyListState) {
-        snapshotFlow { 
+        snapshotFlow {
             Triple(lazyListState.firstVisibleItemIndex, lazyListState.firstVisibleItemScrollOffset, lazyListState.isScrollInProgress)
         }.collect { (index, offset, isScrollInProgress) ->
             // If the user reaches the very top of the queue, always bring the controls back
@@ -160,7 +160,7 @@ fun QueueV2(
 
     val mutableQueueWindows = remember { mutableStateListOf<Timeline.Window>() }
     var dragInfo by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    
+
     val currentPlayingUid = remember(currentWindowIndex, queueWindows) {
         if (currentWindowIndex in queueWindows.indices) {
             queueWindows[currentWindowIndex].uid
@@ -173,7 +173,7 @@ fun QueueV2(
             addAll(queueWindows)
         }
     }
-    
+
     val headerItems = 0
 
     LaunchedEffect(mutableQueueWindows.size, currentWindowIndex) {
@@ -235,7 +235,7 @@ fun QueueV2(
             val pillShape = RoundedCornerShape(16.dp)
             val activeColor = adaptivePrimary.copy(alpha = 0.25f)
             val inactiveColor = adaptivePrimary.copy(alpha = 0.1f)
-            
+
             // Shuffle
             Box(
                 modifier = Modifier
@@ -320,7 +320,7 @@ fun QueueV2(
                             fontWeight = FontWeight.Bold,
                             color = adaptivePrimary,
                             maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis
                         )
                     } else {
                         Text(
@@ -341,7 +341,7 @@ fun QueueV2(
                     }
                 }
             }
-            
+
             if (radioChips.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 LazyRow(
@@ -443,7 +443,7 @@ fun QueueV2(
                                             contentDescription = "Options"
                                         )
                                     }
-                                    
+
                                     if (!isQueueEffectivelyLocked) {
                                         IconButton(
                                             onClick = { },
@@ -519,7 +519,7 @@ fun QueueV2(
                 ) {
                     Text(
                         text = stringResource(R.string.sleep_timer),
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        overflow = TextOverflow.Ellipsis,
                         maxLines = 1,
                         style = MaterialTheme.typography.headlineSmall,
                     )

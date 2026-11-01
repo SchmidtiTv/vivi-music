@@ -53,12 +53,9 @@ import com.music.vivi.constants.PlayerBackgroundStyle
 import com.music.vivi.constants.PlayerBackgroundStyleKey
 import com.music.vivi.constants.PlayerThumbnailShadowElevationKey
 import com.music.vivi.constants.ShowPlayerThumbnailShadowKey
-import com.music.vivi.db.entities.Song
 import com.music.vivi.extensions.SwipeGesture
 import com.music.vivi.extensions.togglePlayPause
 import com.music.vivi.listentogether.RoomRole
-import com.music.vivi.models.MediaMetadata
-import com.music.vivi.playback.CastConnectionHandler
 import com.music.vivi.ui.component.BottomSheetState
 import com.music.vivi.ui.component.CastButton
 import com.music.vivi.ui.component.LocalBottomSheetPageState
@@ -67,7 +64,6 @@ import com.music.vivi.ui.component.LyricsV2
 import com.music.vivi.ui.component.PlayerSliderTrack
 import com.music.vivi.ui.menu.LyricsMenu
 import com.music.vivi.ui.menu.OldPlayerMenu
-import com.music.vivi.ui.player.QueueV2
 import com.music.vivi.ui.player.customSoftShadow
 import com.music.vivi.ui.theme.PlayerSliderColors
 import com.music.vivi.ui.utils.ShowMediaInfo
