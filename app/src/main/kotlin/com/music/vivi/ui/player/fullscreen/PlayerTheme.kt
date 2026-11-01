@@ -64,6 +64,10 @@ interface SlotPlayerTheme : PlayerTheme {
     /** The bar at the bottom of the player while the queue is collapsed. */
     @Composable
     fun QueueBar(args: PlayerQueueBarArgs)
+
+    /** The queue sheet over the player; [PlayerQueue] is the shared implementation. */
+    @Composable
+    fun Queue(args: PlayerQueueArgs)
 }
 
 class PlayerActionsArgs(
@@ -109,6 +113,21 @@ class PlayerControlsArgs(
     val iconButtonColor: Color,
     val sideButtonContainerColor: Color,
     val sideButtonContentColor: Color,
+)
+
+class PlayerQueueArgs(
+    val queueSheetState: BottomSheetState,
+    val playerBottomSheetState: BottomSheetState,
+    val navController: NavController,
+    val background: Color,
+    val onBackgroundColor: Color,
+    val textColor: Color,
+    val textButtonColor: Color,
+    val iconButtonColor: Color,
+    val pureBlack: Boolean,
+    val showInlineLyrics: Boolean,
+    val playerBackground: PlayerBackgroundStyle,
+    val onToggleLyrics: () -> Unit,
 )
 
 class PlayerQueueBarArgs(

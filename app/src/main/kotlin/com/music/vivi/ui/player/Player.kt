@@ -189,6 +189,7 @@ import com.music.vivi.ui.component.rememberBottomSheetState
 import com.music.vivi.ui.menu.PlayerMenu
 import com.music.vivi.ui.player.fullscreen.PlayerActionsArgs
 import com.music.vivi.ui.player.fullscreen.PlayerControlsArgs
+import com.music.vivi.ui.player.fullscreen.PlayerQueueArgs
 import com.music.vivi.ui.player.fullscreen.PlayerTimeBadgeArgs
 import com.music.vivi.ui.player.fullscreen.SlotPlayerTheme
 import com.music.vivi.ui.player.fullscreen.StandalonePlayerTheme
@@ -2040,27 +2041,27 @@ fun BottomSheetPlayer(
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
             exit = shrinkVertically(shrinkTowards = Alignment.Top) + slideOutVertically(targetOffsetY = { it }) + fadeOut()
         ) {
-            Queue(
-                state = queueSheetState,
-                playerBottomSheetState = state,
-            navController = navController,
-            theme = theme,
-            background =
-            if (useBlackBackground) {
-                Color.Black
-            } else {
-                MaterialTheme.colorScheme.surface //fixed the issue causing the queue ui not good surfacecontainer
-            },
-            onBackgroundColor = onBackgroundColor,
-            TextBackgroundColor = TextBackgroundColor,
-            textButtonColor = textButtonColor,
-            iconButtonColor = iconButtonColor,
-            pureBlack = pureBlack,
-            showInlineLyrics = showInlineLyrics,
-            playerBackground = playerBackground,
-            onToggleLyrics = {
-                showInlineLyrics = !showInlineLyrics
-            },
+            theme.Queue(
+                PlayerQueueArgs(
+                    queueSheetState = queueSheetState,
+                    playerBottomSheetState = state,
+                    navController = navController,
+                    background = if (useBlackBackground) {
+                        Color.Black
+                    } else {
+                        MaterialTheme.colorScheme.surface //fixed the issue causing the queue ui not good surfacecontainer
+                    },
+                    onBackgroundColor = onBackgroundColor,
+                    textColor = TextBackgroundColor,
+                    textButtonColor = textButtonColor,
+                    iconButtonColor = iconButtonColor,
+                    pureBlack = pureBlack,
+                    showInlineLyrics = showInlineLyrics,
+                    playerBackground = playerBackground,
+                    onToggleLyrics = {
+                        showInlineLyrics = !showInlineLyrics
+                    },
+                )
             )
         }
     }

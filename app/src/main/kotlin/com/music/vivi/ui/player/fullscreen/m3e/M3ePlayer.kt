@@ -11,6 +11,8 @@ import androidx.compose.ui.unit.dp
 import com.music.vivi.R
 import com.music.vivi.ui.player.fullscreen.PlayerActionsArgs
 import com.music.vivi.ui.player.fullscreen.PlayerControlsArgs
+import com.music.vivi.ui.player.fullscreen.PlayerQueue
+import com.music.vivi.ui.player.fullscreen.PlayerQueueArgs
 import com.music.vivi.ui.player.fullscreen.PlayerQueueBarArgs
 import com.music.vivi.ui.player.fullscreen.PlayerTimeBadgeArgs
 import com.music.vivi.ui.player.fullscreen.SlotPlayerTheme
@@ -87,4 +89,22 @@ object M3ePlayerTheme : SlotPlayerTheme {
         )
     }
 
+    @Composable
+    override fun Queue(args: PlayerQueueArgs) {
+        PlayerQueue(
+            state = args.queueSheetState,
+            playerBottomSheetState = args.playerBottomSheetState,
+            navController = args.navController,
+            theme = this,
+            background = args.background,
+            onBackgroundColor = args.onBackgroundColor,
+            TextBackgroundColor = args.textColor,
+            textButtonColor = args.textButtonColor,
+            iconButtonColor = args.iconButtonColor,
+            pureBlack = args.pureBlack,
+            showInlineLyrics = args.showInlineLyrics,
+            playerBackground = args.playerBackground,
+            onToggleLyrics = args.onToggleLyrics,
+        )
+    }
 }

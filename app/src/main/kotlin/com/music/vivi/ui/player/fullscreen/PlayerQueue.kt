@@ -3,7 +3,7 @@
  * Licensed under GPL-3.0 | See git history for contributors
  */
 
-package com.music.vivi.ui.player
+package com.music.vivi.ui.player.fullscreen
 
 import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
@@ -131,8 +131,6 @@ import com.music.vivi.ui.menu.SelectionMediaMetadataMenu
 import com.music.vivi.ui.screens.CommentSheet
 import com.music.vivi.ui.utils.ShowMediaInfo
 import com.music.vivi.ui.utils.resize
-import com.music.vivi.ui.player.fullscreen.PlayerQueueBarArgs
-import com.music.vivi.ui.player.fullscreen.SlotPlayerTheme
 import com.music.vivi.utils.listItemShape
 import com.music.vivi.utils.makeTimeString
 import com.music.vivi.utils.rememberPreference
@@ -163,7 +161,7 @@ import kotlin.math.roundToInt
 @SuppressLint("UnrememberedMutableState")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun Queue(
+fun PlayerQueue(
     state: BottomSheetState,
     playerBottomSheetState: BottomSheetState,
     navController: NavController,

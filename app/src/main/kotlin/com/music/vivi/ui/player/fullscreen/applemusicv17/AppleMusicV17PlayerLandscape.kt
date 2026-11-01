@@ -889,8 +889,8 @@ fun AppleMusicV17PlayerLandscape(
                     }
 
                     PlayerInternalState.QUEUE -> {
-                        // In landscape, when queue pressed: pure QueueV2, NO top header with song name/star/more
-                        QueueV2(
+                        // In landscape, when queue pressed: pure AppleMusicV17Queue, NO top header with song name/star/more
+                        AppleMusicV17Queue(
                             navController = navController,
                             playerBottomSheetState = state,
                             modifier = Modifier.fillMaxSize()

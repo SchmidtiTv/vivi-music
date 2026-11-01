@@ -786,7 +786,7 @@ fun AppleMusicV17Player(
                                             }
                                         )
                                     } else {
-                                        QueueV2(
+                                        AppleMusicV17Queue(
                                             navController = navController,
                                             playerBottomSheetState = state,
                                             modifier = Modifier.fillMaxSize(),

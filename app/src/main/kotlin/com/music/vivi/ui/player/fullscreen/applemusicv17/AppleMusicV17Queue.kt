@@ -65,7 +65,7 @@ import com.music.vivi.listentogether.RoomRole
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun QueueV2(
+fun AppleMusicV17Queue(
     navController: NavController,
     playerBottomSheetState: BottomSheetState,
     modifier: Modifier = Modifier,
