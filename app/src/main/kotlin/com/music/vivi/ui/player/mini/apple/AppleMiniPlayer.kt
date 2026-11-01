@@ -2,71 +2,115 @@
  * vivimusic Project (C) 2026
  * Licensed under GPL-3.0 | See git history for contributors
  */
-package com.music.vivi.ui.player
 
-import androidx.compose.animation.AnimatedVisibility
+package com.music.vivi.ui.player.mini.apple
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.toShape
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.media3.common.Player
-import androidx.compose.ui.graphics.graphicsLayer
 import coil3.compose.AsyncImage
 import com.music.vivi.LocalListenTogetherManager
 import com.music.vivi.LocalPlayerConnection
 import com.music.vivi.R
-import com.music.vivi.constants.*
-import com.music.vivi.listentogether.ListenTogetherManager
-import com.music.vivi.models.MediaMetadata
-import com.music.vivi.playback.CastConnectionHandler
-import com.music.vivi.playback.PlayerConnection
+import com.music.vivi.constants.CropAlbumArtKey
+import com.music.vivi.constants.DarkModeKey
+import com.music.vivi.constants.MiniPlayerBackgroundStyleKey
+import com.music.vivi.constants.MiniPlayerHeight
+import com.music.vivi.constants.PlayerBackgroundStyle
+import com.music.vivi.constants.PureBlackMiniPlayerKey
+import com.music.vivi.constants.SwipeSensitivityKey
+import com.music.vivi.constants.SwipeThumbnailKey
+import com.music.vivi.ui.player.MiniPlayerBackgroundLayer
+import com.music.vivi.ui.player.MiniPlayerColorExtractor
+import com.music.vivi.ui.player.MiniPlayerLayout
+import com.music.vivi.ui.player.MiniPlayerSongInfo
+import com.music.vivi.ui.player.ProgressState
+import com.music.vivi.ui.player.RailMiniPlayerWidth
+import com.music.vivi.ui.player.mini.MiniPlayerTheme
+import com.music.vivi.ui.player.miniPlayerClick
 import com.music.vivi.ui.screens.settings.DarkMode
 import com.music.vivi.ui.utils.LocalAdaptiveLayout
 import com.music.vivi.utils.rememberEnumPreference
 import com.music.vivi.utils.rememberPreference
-import kotlinx.coroutines.launch
-import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
-import com.music.vivi.ui.component.Icon as MIcon
+import kotlinx.coroutines.launch
+
+object AppleMiniPlayerTheme : MiniPlayerTheme {
+    override val id = "apple"
+    override val nameRes = R.string.apple_mini_player_design
+    override val floating = true
+    override val transparentBottomInset = false
+
+    @Composable
+    override fun Content(
+        progressState: ProgressState,
+        modifier: Modifier,
+        vertical: Boolean,
+        onClick: (() -> Unit)?,
+    ) {
+        AppleMiniPlayer(
+            progressState = progressState,
+            modifier = modifier,
+            vertical = vertical,
+            onClick = onClick,
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AppleMiniPlayer(
+private fun AppleMiniPlayer(
     progressState: ProgressState,
     modifier: Modifier = Modifier,
     vertical: Boolean = false,
