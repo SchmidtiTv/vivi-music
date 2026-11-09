@@ -101,6 +101,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -231,6 +233,7 @@ import com.music.vivi.utils.isWifiConnected
 import com.music.vivi.utils.SpotifySessionManager
 import java.util.Locale
 import com.music.vivi.ui.player.fullscreen.BackgroundVideoView
+import com.music.vivi.ui.player.fullscreen.DockedQueuePlayerLayout
 import com.music.vivi.ui.player.fullscreen.InlineLyricsView
 import com.music.vivi.ui.player.fullscreen.InlineQueueView
 import com.music.vivi.ui.player.fullscreen.smootherStep
@@ -911,6 +914,11 @@ fun BottomSheetPlayer(
         showInlineQueue = false
     }
 
+    val queueBeside = LocalAdaptiveLayout.current.playerQueueBeside
+    LaunchedEffect(queueBeside) {
+        if (queueBeside) showInlineQueue = false
+    }
+
     var isFullScreen by rememberSaveable {
         mutableStateOf(false)
     }
@@ -1007,16 +1015,50 @@ fun BottomSheetPlayer(
                         label = "spotifyCanvasBackground"
                     ) { url ->
                         if (url != null) {
+                            val canvasOnStartHalf = LocalAdaptiveLayout.current.playerQueueBeside
                             Box(modifier = Modifier.fillMaxSize().alpha(backgroundAlpha)) {
+                                if (canvasOnStartHalf) {
+                                    PlayerBlurBackdrop(
+                                        artworkUri = mediaMetadata?.thumbnailUrl?.toUri(),
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
                                 if (backgroundAlpha > 0.01f) {
+                                    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
                                     BackgroundVideoView(
                                         videoUrl = url,
                                         isPlaying = isPlaying,
                                         resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
-                                        modifier = Modifier.fillMaxSize()
+                                        modifier = if (canvasOnStartHalf) {
+                                            Modifier
+                                                .fillMaxWidth(0.5f)
+                                                .fillMaxHeight()
+                                                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                                                .drawWithContent {
+                                                    drawContent()
+                                                    val stops = arrayOf(
+                                                        0.00f to Color.Black,
+                                                        0.75f to Color.Black,
+                                                        0.92f to Color.Black.copy(alpha = 0.4f),
+                                                        1.00f to Color.Transparent,
+                                                    )
+                                                    drawRect(
+                                                        brush = Brush.horizontalGradient(
+                                                            colorStops = if (isRtl) {
+                                                                stops.reversedArray().map { (f, c) -> 1f - f to c }.toTypedArray()
+                                                            } else {
+                                                                stops
+                                                            }
+                                                        ),
+                                                        blendMode = BlendMode.DstIn
+                                                    )
+                                                }
+                                        } else {
+                                            Modifier.fillMaxSize()
+                                        }
                                     )
                                 }
-                                if (lyricsBlurAlpha > 0.01f) {
+                                if (lyricsBlurAlpha > 0.01f && !canvasOnStartHalf) {
                                     PlayerBlurBackdrop(
                                         artworkUri = mediaMetadata?.thumbnailUrl?.toUri(),
                                         modifier = Modifier
@@ -1261,10 +1303,10 @@ fun BottomSheetPlayer(
                             )
 
                             // Layer 2: Clear Artwork (Dissolves along smootherStep into backdrop)
-                            // Only drawn in background for new player; old player uses the foreground morphing sleeve.
-                            if (useNewPlayerDesign) {
+                            val artworkOnLeftHalf = LocalAdaptiveLayout.current.playerQueueBeside
+                            if (useNewPlayerDesign || artworkOnLeftHalf) {
                                 val clearArtworkAlpha by animateFloatAsState(
-                                    targetValue = if (showInlineLyrics || showInlineQueue) 0f else 1f,
+                                    targetValue = if ((showInlineLyrics || showInlineQueue) && !artworkOnLeftHalf) 0f else 1f,
                                     animationSpec = tween(500),
                                     label = "clearArtworkAlpha"
                                 )
@@ -1276,7 +1318,7 @@ fun BottomSheetPlayer(
                                     if (thumbnailUrl != null) {
                                         Box(
                                             modifier = Modifier
-                                                .fillMaxWidth()
+                                                .fillMaxWidth(if (artworkOnLeftHalf) 0.5f else 1f)
                                                 .fillMaxHeight(0.65f) // Occupies top 65%
                                                 .alpha(clearArtworkAlpha)
                                                 .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
@@ -1294,6 +1336,19 @@ fun BottomSheetPlayer(
                                                         ),
                                                         blendMode = BlendMode.DstIn
                                                     )
+                                                    if (artworkOnLeftHalf) {
+                                                        drawRect(
+                                                            brush = Brush.horizontalGradient(
+                                                                colorStops = arrayOf(
+                                                                    0.00f to Color.Black,
+                                                                    0.75f to Color.Black,
+                                                                    0.92f to Color.Black.copy(alpha = 0.4f),
+                                                                    1.00f to Color.Transparent,
+                                                                )
+                                                            ),
+                                                            blendMode = BlendMode.DstIn
+                                                        )
+                                                    }
                                                 }
                                         ) {
                                             AsyncImage(
@@ -1352,7 +1407,7 @@ fun BottomSheetPlayer(
         val controlsContent: @Composable ColumnScope.(MediaMetadata) -> Unit = { mediaMetadata ->
             val trackInfoContent: @Composable () -> Unit = {
                 val controlsHeaderAlpha by animateFloatAsState(
-                    targetValue = if (!useNewPlayerDesign && (showInlineLyrics || showInlineQueue)) 0f else 1f,
+                    targetValue = if (!useNewPlayerDesign && !LocalAdaptiveLayout.current.playerQueueBeside && (showInlineLyrics || showInlineQueue)) 0f else 1f,
                     animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
                     label = "controlsHeaderAlpha",
                 )
@@ -1371,7 +1426,7 @@ fun BottomSheetPlayer(
                     .graphicsLayer { alpha = controlsHeaderAlpha },
             ) {
                 AnimatedContent(
-                    targetState = useNewPlayerDesign && (showInlineLyrics || showInlineQueue || spotifyCanvasUrl != null),
+                    targetState = useNewPlayerDesign && ((showInlineLyrics && !LocalAdaptiveLayout.current.playerQueueBeside) || showInlineQueue || spotifyCanvasUrl != null),
                     label = "ThumbnailAnimation"
                 ) { showSmallThumbnail ->
                     if (showSmallThumbnail) {
@@ -1756,6 +1811,9 @@ fun BottomSheetPlayer(
                     }
                 } else {
                     val isLiked = currentSong?.song?.liked == true
+                    // Matches controlsHeaderAlpha: the header only hides over lyrics/queue when they aren't docked beside it.
+                    val headerActionsEnabled = LocalAdaptiveLayout.current.playerQueueBeside ||
+                        (!showInlineLyrics && !showInlineQueue)
 
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1768,7 +1826,7 @@ fun BottomSheetPlayer(
                                 .clip(CircleShape)
                                 .background(TextBackgroundColor.copy(alpha = 0.14f))
                                 .clickable(
-                                    enabled = !showInlineLyrics && !showInlineQueue,
+                                    enabled = headerActionsEnabled,
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                     onClick = playerConnection::toggleLike,
@@ -1794,7 +1852,7 @@ fun BottomSheetPlayer(
                                 .clip(CircleShape)
                                 .background(TextBackgroundColor.copy(alpha = 0.14f))
                                 .clickable(
-                                    enabled = !showInlineLyrics && !showInlineQueue,
+                                    enabled = headerActionsEnabled,
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                     onClick = {
@@ -2229,8 +2287,40 @@ fun BottomSheetPlayer(
         }
     }
 
-        when (LocalAdaptiveLayout.current.playerSideBySide) {
-            true -> {
+        val adaptiveLayout = LocalAdaptiveLayout.current
+        val queueBackground = if (useBlackBackground) Color.Black else MaterialTheme.colorScheme.surface
+
+        when {
+            adaptiveLayout.playerQueueBeside -> {
+                DockedQueuePlayerLayout(
+                    state = state,
+                    queueSheetState = queueSheetState,
+                    navController = navController,
+                    sheetNestedScroll = sheetNestedScroll,
+                    mediaMetadata = mediaMetadata,
+                    controlsContent = controlsContent,
+                    spotifyCanvasUrl = spotifyCanvasUrl,
+                    playerBackground = playerBackground,
+                    sliderPosition = sliderPosition,
+                    effectivePosition = { effectivePosition },
+                    isListenTogetherGuest = isListenTogetherGuest,
+                    isFullScreen = isFullScreen,
+                    useNewPlayerDesign = useNewPlayerDesign,
+                    showInlineLyrics = showInlineLyrics,
+                    onShowInlineLyricsChange = { showInlineLyrics = it },
+                    queueBackground = queueBackground,
+                    onBackgroundColor = onBackgroundColor,
+                    TextBackgroundColor = TextBackgroundColor,
+                    textButtonColor = textButtonColor,
+                    iconButtonColor = iconButtonColor,
+                    pureBlack = pureBlack,
+                    bluetoothDeviceName = bluetoothDeviceName,
+                    nameToShow = nameToShow,
+                    onShowAudioDevices = { showAudioDeviceBottomSheet = true },
+                )
+            }
+
+            adaptiveLayout.playerSideBySide -> {
                 // Calculate vertical padding like OuterTune
                 val density = LocalDensity.current
                 val verticalPadding = max(
@@ -2533,7 +2623,8 @@ fun BottomSheetPlayer(
                         bottomPadding = bottomPadding,
                         mediaMetadata = mediaMetadata,
                         showInlineLyrics = showInlineLyrics,
-                        sliderPosition = sliderPosition,
+                        sheetNestedScroll = sheetNestedScroll,
+                        sliderPosition = { sliderPosition },
                         effectivePosition = { effectivePosition },
                         spotifyCanvasUrl = spotifyCanvasUrl,
                         playerBackground = playerBackground,
@@ -2543,6 +2634,7 @@ fun BottomSheetPlayer(
                 } else {
                     ClassicPlayerLayout(
                         state = state,
+                        sheetNestedScroll = sheetNestedScroll,
                         navController = navController,
                         bottomPadding = bottomPadding,
                         mediaMetadata = mediaMetadata,
@@ -2574,6 +2666,7 @@ fun BottomSheetPlayer(
             }
         }
 
+        if (!adaptiveLayout.playerQueueBeside) {
         AnimatedVisibility(
             visible = !isFullScreen,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -2600,6 +2693,7 @@ fun BottomSheetPlayer(
                 showInlineLyrics = !showInlineLyrics
             },
             )
+        }
         }
 
         if (showAudioDeviceBottomSheet) {

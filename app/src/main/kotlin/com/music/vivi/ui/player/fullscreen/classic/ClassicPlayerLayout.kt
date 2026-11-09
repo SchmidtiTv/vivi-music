@@ -69,7 +69,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -125,6 +124,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun ClassicPlayerLayout(
     state: BottomSheetState,
+    sheetNestedScroll: Modifier,
     navController: NavController,
     bottomPadding: Dp,
     mediaMetadata: MediaMetadata?,
@@ -578,7 +578,7 @@ fun ClassicPlayerLayout(
                 .width(artworkWidth)
                 .height(artworkHeight)
                 .zIndex(1f)
-                .nestedScroll(state.preUpPostDownNestedScrollConnection)
+                .then(sheetNestedScroll)
                 .graphicsLayer {
                     shape = artworkShape
                     clip = true

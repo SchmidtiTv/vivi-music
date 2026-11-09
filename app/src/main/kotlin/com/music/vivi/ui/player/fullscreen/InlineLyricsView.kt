@@ -22,6 +22,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ProvideTextStyle
@@ -66,7 +67,8 @@ fun InlineLyricsView(
     mediaMetadata: MediaMetadata?,
     showLyrics: Boolean,
     positionProvider: () -> Long,
-    controlsOverlap: Dp = 0.dp
+    controlsOverlap: Dp = 0.dp,
+    showMenuButton: Boolean = false,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val currentLyrics by playerConnection.currentLyrics.collectAsState(initial = null)
@@ -229,6 +231,22 @@ fun InlineLyricsView(
                 ) {
                     lyricsContent()
                 }
+            }
+        }
+
+        if (showMenuButton && mediaMetadata != null) {
+            IconButton(
+                onClick = showLyricsMenu,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 8.dp, end = 8.dp)
+                    .size(40.dp)
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.more_horiz),
+                    contentDescription = stringResource(R.string.more_options),
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }

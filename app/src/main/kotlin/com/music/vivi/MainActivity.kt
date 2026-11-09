@@ -778,7 +778,9 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val showRail = adaptiveLayout.useNavRail
-                val miniPlayerInRail = showRail && adaptiveLayout.miniPlayerInRail && miniPlayerInRailPref
+                val railHiddenOnRoute = currentRoute == "wrapped" || currentRoute == "update"
+                val miniPlayerInRail = showRail && !railHiddenOnRoute &&
+                    adaptiveLayout.miniPlayerInRail && miniPlayerInRailPref
 
                 val navPadding = if (shouldShowNavigationBar && !showRail) {
                     if (slimNav) SlimNavBarHeight else NavigationBarHeight
@@ -1291,7 +1293,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            if (showRail && currentRoute != "wrapped" && currentRoute != "update") {
+                            if (showRail && !railHiddenOnRoute) {
                                 AppNavigationRail(
                                     navigationItems = navigationItems,
                                     currentRoute = currentRoute,
@@ -1299,6 +1301,7 @@ class MainActivity : ComponentActivity() {
                                     pureBlack = pureBlack,
                                     slimNav = slimNav,
                                     onSearchLongClick = onRailSearchLongClick,
+                                    floating = floatingNav,
                                     footer = {
                                         if (miniPlayerInRail) {
                                             RailMiniPlayer(

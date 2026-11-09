@@ -25,12 +25,8 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
@@ -48,7 +44,8 @@ fun M3ePlayerLayout(
     bottomPadding: Dp,
     mediaMetadata: MediaMetadata?,
     showInlineLyrics: Boolean,
-    sliderPosition: Long?,
+    sheetNestedScroll: Modifier,
+    sliderPosition: () -> Long?,
     effectivePosition: () -> Long,
     spotifyCanvasUrl: String?,
     playerBackground: PlayerBackgroundStyle,
@@ -67,8 +64,6 @@ Column(
         contentAlignment = Alignment.Center,
         modifier = Modifier.weight(1f),
     ) {
-        val currentSliderPosition by rememberUpdatedState(sliderPosition)
-        val sliderPositionProvider = remember { { currentSliderPosition } }
         val isExpandedProvider = remember(state) { { state.isExpanded } }
         AnimatedContent(
             targetState = showInlineLyrics,
@@ -79,12 +74,12 @@ Column(
                 InlineLyricsView(
                     mediaMetadata = mediaMetadata,
                     showLyrics = showLyrics,
-                    positionProvider = { sliderPosition ?: effectivePosition() }
+                    positionProvider = { sliderPosition() ?: effectivePosition() }
                 )
             } else if (spotifyCanvasUrl == null && playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
                 Thumbnail(
-                    sliderPositionProvider = sliderPositionProvider,
-                    modifier = Modifier.nestedScroll(state.preUpPostDownNestedScrollConnection),
+                    sliderPositionProvider = sliderPosition,
+                    modifier = sheetNestedScroll,
                     isPlayerExpanded = isExpandedProvider,
                     isListenTogetherGuest = isListenTogetherGuest
                 )

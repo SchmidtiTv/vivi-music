@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -32,6 +33,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -49,6 +51,9 @@ fun ArtistVideo(
 ) {
     val context = LocalContext.current
     var isVideoReady by remember(videoUrl) { mutableStateOf(false) }
+    // AspectRatioFrameLayout can only zoom/fit once it knows the video's shape; without it the
+    // video is stretched to fill the view.
+    var videoAspectRatio by remember(videoUrl) { mutableFloatStateOf(0f) }
 
     val okHttpClient = remember { OkHttpClient.Builder().build() }
     val mediaSourceFactory =
@@ -84,6 +89,12 @@ fun ArtistVideo(
             object : Player.Listener {
                 override fun onRenderedFirstFrame() {
                     isVideoReady = true
+                }
+
+                override fun onVideoSizeChanged(videoSize: VideoSize) {
+                    if (videoSize.width > 0 && videoSize.height > 0) {
+                        videoAspectRatio = videoSize.width * videoSize.pixelWidthHeightRatio / videoSize.height
+                    }
                 }
             }
         exoPlayer.addListener(listener)
@@ -140,6 +151,9 @@ fun ArtistVideo(
             update = { view ->
                 if (view.resizeMode != resizeMode) {
                     view.resizeMode = resizeMode
+                }
+                if (videoAspectRatio > 0f) {
+                    view.setAspectRatio(videoAspectRatio)
                 }
             },
             modifier = Modifier
