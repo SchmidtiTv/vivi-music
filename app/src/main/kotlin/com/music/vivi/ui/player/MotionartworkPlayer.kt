@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -22,6 +23,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -49,6 +51,9 @@ fun MotionartworkPlayer(
     val initial = primary ?: fallback ?: return
     var currentUrl by remember(initial) { mutableStateOf(initial) }
     var isVideoReady by remember(initial) { mutableStateOf(false) }
+    // AspectRatioFrameLayout can only fit the video once it knows its shape; without it the
+    // video is stretched to fill the view.
+    var videoAspectRatio by remember { mutableFloatStateOf(0f) }
 
     val okHttpClient =
         remember {
@@ -154,6 +159,12 @@ fun MotionartworkPlayer(
                 override fun onRenderedFirstFrame() {
                     isVideoReady = true
                 }
+
+                override fun onVideoSizeChanged(videoSize: VideoSize) {
+                    if (videoSize.width > 0 && videoSize.height > 0) {
+                        videoAspectRatio = videoSize.width * videoSize.pixelWidthHeightRatio / videoSize.height
+                    }
+                }
             }
         exoPlayer.addListener(listener)
         onDispose { exoPlayer.removeListener(listener) }
@@ -219,7 +230,9 @@ fun MotionartworkPlayer(
             }
         },
         update = { view ->
-            // AspectRatioFrameLayout handles itself, no specific update needed here
+            if (videoAspectRatio > 0f) {
+                view.setAspectRatio(videoAspectRatio)
+            }
         },
         modifier = modifier.alpha(alpha),
     )

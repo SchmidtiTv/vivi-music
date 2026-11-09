@@ -1313,6 +1313,7 @@ class MainActivity : ComponentActivity() {
                                     onItemClick = onRailItemClick,
                                     pureBlack = pureBlack,
                                     onSearchLongClick = onRailSearchLongClick,
+                                    floating = floatingNav,
                                     footer = {
                                         if (miniPlayerInRail) {
                                             RailMiniPlayer(

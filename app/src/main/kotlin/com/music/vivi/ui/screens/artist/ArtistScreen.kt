@@ -145,6 +145,10 @@ import com.music.vivi.artistvideo.AppleMusicArtistBackgroundProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.music.vivi.ui.utils.LocalAdaptiveLayout
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -201,12 +205,417 @@ fun ArtistScreen(
         showLocal = libraryArtist?.artist?.isLocal == true
     }
 
+    val twoPane = LocalAdaptiveLayout.current.twoPaneDetails
+
+    // Photo, name, stats, about and buttons: the first list item on phones, a side pane on tablets.
+    val header: @Composable (pane: Boolean) -> Unit = { pane ->
+        val thumbnail = artistPage?.artist?.thumbnail ?: libraryArtist?.artist?.thumbnailUrl
+        val artistName = artistPage?.artist?.title ?: libraryArtist?.artist?.name
+
+        var backgroundVideoUrl by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(artistName, showArtistBackgroundVideo) {
+            if (artistName != null && showArtistBackgroundVideo) {
+                withContext(Dispatchers.IO) {
+                    backgroundVideoUrl = AppleMusicArtistBackgroundProvider.getByArtistName(artistName)
+                }
+            }
+        }
+
+        val headerContent: @Composable () -> Unit = {
+            // Artist Image with offset
+            if (thumbnail != null || backgroundVideoUrl != null) {
+                val displayMetrics = LocalResources.current.displayMetrics
+                val screenHeight = displayMetrics.heightPixels
+                val headerHeight = with(density) { (screenHeight * 0.40f).toDp() }
+                Box(
+                    modifier = if (pane) {
+                        Modifier
+                            .padding(horizontal = 16.dp)
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(28.dp))
+                    } else {
+                        Modifier
+                            .fillMaxWidth()
+                            .height(headerHeight)
+                            .offset {
+                                IntOffset(x = 0, y = headerOffset)
+                            }
+                    }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (pane) Modifier else Modifier.fadingEdge(bottom = 200.dp))
+                    ) {
+                        if (thumbnail != null) {
+                            AsyncImage(
+                                // Request the header's own size: a square image gets
+                                // blown up and blurry on wide screens such as tablets.
+                                model = if (pane) {
+                                thumbnail.resize(1200, 1200)
+                            } else {
+                                thumbnail.resize(displayMetrics.widthPixels, (screenHeight * 0.40f).toInt())
+                            },
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                        if (backgroundVideoUrl != null && showArtistBackgroundVideo) {
+                            ArtistVideo(
+                                videoUrl = backgroundVideoUrl!!,
+                                modifier = Modifier.fillMaxSize(),
+                                onClick = { }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Artist Name and Controls Section - positioned at bottom of image
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        top = if (!pane && (thumbnail != null || backgroundVideoUrl != null)) {
+                            // Push content down to sit at the bottom edge of the video header
+                            // headerHeight (40% screen height) minus overlap for text/controls
+                            val screenHeight = LocalResources.current.displayMetrics.heightPixels
+                            with(density) { (screenHeight * 0.40f - 160f).toDp() }
+                        } else {
+                            16.dp
+                        }
+                    )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    ) {
+
+                        //artist video
+                        if (showArtistVideo && !(showArtistBackgroundVideo && backgroundVideoUrl != null)) {
+                            artistVideoUrl?.let { videoUrl ->
+                                artistPage?.artist?.radioEndpoint?.let { radioEndpoint ->
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    ArtistVideo(
+                                        videoUrl = videoUrl,
+                                        modifier = Modifier
+                                            .height(45.dp)
+                                            .aspectRatio(16f / 9f),
+                                        onClick = {
+                                            val watchEndpoint = artistVideoSong?.endpoint
+                                                ?: artistPage?.artist?.radioEndpoint
+                                            watchEndpoint?.let {
+                                                playerConnection.playQueue(YouTubeQueue(it))
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(5.dp))
+
+                        // Artist Name
+                        Text(
+                            text = artistName ?: "Unknown",
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontSize = 32.sp,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
+
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    ) {
+                        if (showArtistSubscriberCount) {
+                            artistPage?.subscriberCountText?.let { subscribers ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.artist_screen),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "${subscribers.split(' ').firstOrNull() ?: ""} ${stringResource(R.string.subscribers)}",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
+                        if (showMonthlyListeners) {
+                            artistPage?.monthlyListenerCount?.let { monthlyListeners ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.graphic_eq),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "${monthlyListeners.split(' ').firstOrNull() ?: ""} ${stringResource(R.string.monthly_listeners)}",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (!showLocal && showArtistDescription && artistPage != null) {
+                        val description = artistPage?.description
+                        val descriptionRuns = artistPage?.descriptionRuns
+                        
+                        if (!description.isNullOrEmpty() || !descriptionRuns.isNullOrEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 16.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.about_artist),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                
+                                ExpandableText(
+                                    text = description.orEmpty(),
+                                    runs = descriptionRuns?.map {
+                                        LinkSegment(
+                                            text = it.text,
+                                            url = it.navigationEndpoint?.urlEndpoint?.url
+                                        )
+                                    },
+                                    collapsedMaxLines = if (pane) 8 else 3
+                                )
+                            }
+                        }
+                    }
+
+                    // Buttons Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(
+                            ButtonGroupDefaults.ConnectedSpaceBetween
+                        )
+                    ) {
+                        // Subscribe Button
+                        ToggleButton(
+                            checked = libraryArtist?.artist?.bookmarkedAt != null,
+                            onCheckedChange = {
+                                database.transaction {
+                                    val artist = libraryArtist?.artist
+                                    if (artist != null) {
+                                        update(artist.toggleLike())
+                                    } else {
+                                        artistPage?.artist?.let {
+                                            insert(
+                                                ArtistEntity(
+                                                    id = it.id,
+                                                    name = it.title,
+                                                    channelId = it.channelId,
+                                                    thumbnailUrl = it.thumbnail,
+                                                ).toggleLike()
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp)
+                                .semantics { role = Role.Button },
+                            shapes = ButtonGroupDefaults.connectedLeadingButtonShapes()
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    if (libraryArtist?.artist?.bookmarkedAt != null) {
+                                        R.drawable.subscribed
+                                    } else {
+                                        R.drawable.subscribe
+                                    }
+                                ),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = if (libraryArtist?.artist?.bookmarkedAt != null) {
+                                    MaterialTheme.colorScheme.onPrimary
+                                } else {
+                                    LocalContentColor.current
+                                }
+                            )
+                            Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                            Text(
+                                text = stringResource(
+                                    if (libraryArtist?.artist?.bookmarkedAt != null) {
+                                        R.string.subscribed
+                                    } else {
+                                        R.string.subscribe
+                                    }
+                                ),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+
+                        // Radio Button
+                        if (!showLocal && !isGuest) {
+                            artistPage?.artist?.radioEndpoint?.let { radioEndpoint ->
+                                ToggleButton(
+                                    checked = false,
+                                    onCheckedChange = {
+                                        playerConnection.playQueue(YouTubeQueue(radioEndpoint))
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(52.dp)
+                                        .semantics { role = Role.Button },
+                                    shapes = ButtonGroupDefaults.connectedMiddleButtonShapes()
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.radio),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                                    Text(
+                                        text = stringResource(R.string.radio),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+                        }
+
+                        // Shuffle Button
+                        if (!showLocal && !isGuest) {
+                            artistPage?.artist?.shuffleEndpoint?.let { shuffleEndpoint ->
+                                ToggleButton(
+                                    checked = false,
+                                    onCheckedChange = {
+                                        playerConnection.playQueue(YouTubeQueue(shuffleEndpoint))
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(52.dp)
+                                        .semantics { role = Role.Button },
+                                    shapes = if (artistPage?.artist?.radioEndpoint != null) {
+                                        ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                    } else {
+                                        ButtonGroupDefaults.connectedTrailingButtonShapes()
+                                    }
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.shuffle),
+                                        contentDescription = stringResource(R.string.shuffle),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                                    Text(
+                                        text = stringResource(R.string.shuffle),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+                        } else if (librarySongs.isNotEmpty() && !isGuest) {
+                            ToggleButton(
+                                checked = false,
+                                onCheckedChange = {
+                                    val shuffledSongs = librarySongs.shuffled()
+                                    if (shuffledSongs.isNotEmpty()) {
+                                        playerConnection.playQueue(
+                                            ListQueue(
+                                                title = libraryArtist?.artist?.name ?: "Unknown Artist",
+                                                items = shuffledSongs.map { it.toMediaItem() }
+                                            )
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp)
+                                    .semantics { role = Role.Button },
+                                shapes = ButtonGroupDefaults.connectedTrailingButtonShapes()
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.shuffle),
+                                    contentDescription = stringResource(R.string.shuffle),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+                                Text(
+                                    text = stringResource(R.string.shuffle),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+
+        if (pane) {
+            Column { headerContent() }
+        } else {
+            Box { headerContent() }
+        }
+    }
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
+        Row(modifier = Modifier.fillMaxSize()) {
+        if (twoPane && !(artistPage == null && !showLocal)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(0.4f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+            ) {
+                header(true)
+            }
+        }
         LazyColumn(
             state = lazyListState,
             contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
+            modifier = Modifier.weight(1f),
         ) {
             if (artistPage == null && !showLocal) {
                 item(key = "shimmer") {
@@ -295,373 +704,9 @@ fun ArtistScreen(
                     }
                 }
             } else {
-                item(key = "header") {
-                    val thumbnail = artistPage?.artist?.thumbnail ?: libraryArtist?.artist?.thumbnailUrl
-                    val artistName = artistPage?.artist?.title ?: libraryArtist?.artist?.name
-
-                    var backgroundVideoUrl by remember { mutableStateOf<String?>(null) }
-                    LaunchedEffect(artistName, showArtistBackgroundVideo) {
-                        if (artistName != null && showArtistBackgroundVideo) {
-                            withContext(Dispatchers.IO) {
-                                backgroundVideoUrl = AppleMusicArtistBackgroundProvider.getByArtistName(artistName)
-                            }
-                        }
-                    }
-
-                    Box {
-                        // Artist Image with offset
-                        if (thumbnail != null || backgroundVideoUrl != null) {
-                            val screenHeight = LocalResources.current.displayMetrics.heightPixels
-                            val headerHeight = with(density) { (screenHeight * 0.40f).toDp() }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(headerHeight)
-                                    .offset {
-                                        IntOffset(x = 0, y = headerOffset)
-                                    }
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .fadingEdge(
-                                            bottom = 200.dp,
-                                        )
-                                ) {
-                                    if (thumbnail != null) {
-                                        AsyncImage(
-                                            model = thumbnail.resize(1200, 1200),
-                                            contentDescription = null,
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                        )
-                                    }
-                                    if (backgroundVideoUrl != null && showArtistBackgroundVideo) {
-                                        ArtistVideo(
-                                            videoUrl = backgroundVideoUrl!!,
-                                            modifier = Modifier.fillMaxSize(),
-                                            onClick = { }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Artist Name and Controls Section - positioned at bottom of image
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    top = if (thumbnail != null || backgroundVideoUrl != null) {
-                                        // Push content down to sit at the bottom edge of the video header
-                                        // headerHeight (40% screen height) minus overlap for text/controls
-                                        val screenHeight = LocalResources.current.displayMetrics.heightPixels
-                                        with(density) { (screenHeight * 0.40f - 160f).toDp() }
-                                    } else {
-                                        16.dp
-                                    }
-                                )
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(bottom = 16.dp)
-                                ) {
-
-                                    //artist video
-                                    if (showArtistVideo && !(showArtistBackgroundVideo && backgroundVideoUrl != null)) {
-                                        artistVideoUrl?.let { videoUrl ->
-                                            artistPage?.artist?.radioEndpoint?.let { radioEndpoint ->
-                                                Spacer(modifier = Modifier.width(5.dp))
-                                                ArtistVideo(
-                                                    videoUrl = videoUrl,
-                                                    modifier = Modifier
-                                                        .height(45.dp)
-                                                        .aspectRatio(16f / 9f),
-                                                    onClick = {
-                                                        val watchEndpoint = artistVideoSong?.endpoint
-                                                            ?: artistPage?.artist?.radioEndpoint
-                                                        watchEndpoint?.let {
-                                                            playerConnection.playQueue(YouTubeQueue(it))
-                                                        }
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.width(5.dp))
-
-                                    // Artist Name
-                                    Text(
-                                        text = artistName ?: "Unknown",
-                                        style = MaterialTheme.typography.headlineLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        fontSize = 32.sp,
-                                        modifier = Modifier.weight(1f, fill = false)
-                                    )
-                                }
-
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                    modifier = Modifier.padding(bottom = 16.dp)
-                                ) {
-                                    if (showArtistSubscriberCount) {
-                                        artistPage?.subscriberCountText?.let { subscribers ->
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(12.dp))
-                                                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.artist_screen),
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = "${subscribers.split(' ').firstOrNull() ?: ""} ${stringResource(R.string.subscribers)}",
-                                                    style = MaterialTheme.typography.labelLarge,
-                                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                    fontWeight = FontWeight.Medium,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    if (showMonthlyListeners) {
-                                        artistPage?.monthlyListenerCount?.let { monthlyListeners ->
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(12.dp))
-                                                    .background(MaterialTheme.colorScheme.tertiaryContainer)
-                                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.graphic_eq),
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(16.dp),
-                                                    tint = MaterialTheme.colorScheme.onTertiaryContainer
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = "${monthlyListeners.split(' ').firstOrNull() ?: ""} ${stringResource(R.string.monthly_listeners)}",
-                                                    style = MaterialTheme.typography.labelLarge,
-                                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                                    fontWeight = FontWeight.Medium,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (!showLocal && showArtistDescription && artistPage != null) {
-                                    val description = artistPage?.description
-                                    val descriptionRuns = artistPage?.descriptionRuns
-                                    
-                                    if (!description.isNullOrEmpty() || !descriptionRuns.isNullOrEmpty()) {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(bottom = 16.dp)
-                                        ) {
-                                            Text(
-                                                text = stringResource(R.string.about_artist),
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(bottom = 8.dp)
-                                            )
-                                            
-                                            ExpandableText(
-                                                text = description.orEmpty(),
-                                                runs = descriptionRuns?.map {
-                                                    LinkSegment(
-                                                        text = it.text,
-                                                        url = it.navigationEndpoint?.urlEndpoint?.url
-                                                    )
-                                                },
-                                                collapsedMaxLines = 3
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Buttons Row
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(
-                                        ButtonGroupDefaults.ConnectedSpaceBetween
-                                    )
-                                ) {
-                                    // Subscribe Button
-                                    ToggleButton(
-                                        checked = libraryArtist?.artist?.bookmarkedAt != null,
-                                        onCheckedChange = {
-                                            database.transaction {
-                                                val artist = libraryArtist?.artist
-                                                if (artist != null) {
-                                                    update(artist.toggleLike())
-                                                } else {
-                                                    artistPage?.artist?.let {
-                                                        insert(
-                                                            ArtistEntity(
-                                                                id = it.id,
-                                                                name = it.title,
-                                                                channelId = it.channelId,
-                                                                thumbnailUrl = it.thumbnail,
-                                                            ).toggleLike()
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(52.dp)
-                                            .semantics { role = Role.Button },
-                                        shapes = ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(
-                                                if (libraryArtist?.artist?.bookmarkedAt != null) {
-                                                    R.drawable.subscribed
-                                                } else {
-                                                    R.drawable.subscribe
-                                                }
-                                            ),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp),
-                                            tint = if (libraryArtist?.artist?.bookmarkedAt != null) {
-                                                MaterialTheme.colorScheme.onPrimary
-                                            } else {
-                                                LocalContentColor.current
-                                            }
-                                        )
-                                        Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
-                                        Text(
-                                            text = stringResource(
-                                                if (libraryArtist?.artist?.bookmarkedAt != null) {
-                                                    R.string.subscribed
-                                                } else {
-                                                    R.string.subscribe
-                                                }
-                                            ),
-                                            style = MaterialTheme.typography.labelMedium
-                                        )
-                                    }
-
-                                    // Radio Button
-                                    if (!showLocal && !isGuest) {
-                                        artistPage?.artist?.radioEndpoint?.let { radioEndpoint ->
-                                            ToggleButton(
-                                                checked = false,
-                                                onCheckedChange = {
-                                                    playerConnection.playQueue(YouTubeQueue(radioEndpoint))
-                                                },
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(52.dp)
-                                                    .semantics { role = Role.Button },
-                                                shapes = ButtonGroupDefaults.connectedMiddleButtonShapes()
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.radio),
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
-                                                Text(
-                                                    text = stringResource(R.string.radio),
-                                                    style = MaterialTheme.typography.labelMedium
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    // Shuffle Button
-                                    if (!showLocal && !isGuest) {
-                                        artistPage?.artist?.shuffleEndpoint?.let { shuffleEndpoint ->
-                                            ToggleButton(
-                                                checked = false,
-                                                onCheckedChange = {
-                                                    playerConnection.playQueue(YouTubeQueue(shuffleEndpoint))
-                                                },
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(52.dp)
-                                                    .semantics { role = Role.Button },
-                                                shapes = if (artistPage?.artist?.radioEndpoint != null) {
-                                                    ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                                } else {
-                                                    ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                                }
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.shuffle),
-                                                    contentDescription = stringResource(R.string.shuffle),
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
-                                                Text(
-                                                    text = stringResource(R.string.shuffle),
-                                                    style = MaterialTheme.typography.labelMedium
-                                                )
-                                            }
-                                        }
-                                    } else if (librarySongs.isNotEmpty() && !isGuest) {
-                                        ToggleButton(
-                                            checked = false,
-                                            onCheckedChange = {
-                                                val shuffledSongs = librarySongs.shuffled()
-                                                if (shuffledSongs.isNotEmpty()) {
-                                                    playerConnection.playQueue(
-                                                        ListQueue(
-                                                            title = libraryArtist?.artist?.name ?: "Unknown Artist",
-                                                            items = shuffledSongs.map { it.toMediaItem() }
-                                                        )
-                                                    )
-                                                }
-                                            },
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(52.dp)
-                                                .semantics { role = Role.Button },
-                                            shapes = ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.shuffle),
-                                                contentDescription = stringResource(R.string.shuffle),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
-                                            Text(
-                                                text = stringResource(R.string.shuffle),
-                                                style = MaterialTheme.typography.labelMedium
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
+                if (!twoPane) {
+                    item(key = "header") {
+                        header(false)
                     }
                 }
 
@@ -947,6 +992,7 @@ fun ArtistScreen(
                     }
                 }
             }
+        }
         }
 
         val isScrollingUp = lazyListState.isScrollingUp()

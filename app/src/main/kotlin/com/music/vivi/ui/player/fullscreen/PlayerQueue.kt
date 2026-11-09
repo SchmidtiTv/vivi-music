@@ -167,6 +167,7 @@ fun PlayerQueue(
     navController: NavController,
     theme: SlotPlayerTheme,
     modifier: Modifier = Modifier,
+    docked: Boolean = false,
     background: Color,
     onBackgroundColor: Color,
     TextBackgroundColor: Color,
@@ -184,49 +185,6 @@ fun PlayerQueue(
     val bottomSheetPageState = LocalBottomSheetPageState.current
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
-    var showAudioDeviceBottomSheet by remember { mutableStateOf(false) }
-
-    val isBluetoothConnected by produceState(initialValue = isBluetoothHeadphoneConnected(context)) {
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                value = isBluetoothHeadphoneConnected(context)
-            }
-        }
-
-        val callback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            object : android.media.AudioDeviceCallback() {
-                override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>?) {
-                    value = isBluetoothHeadphoneConnected(context)
-                }
-                override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>?) {
-                    value = isBluetoothHeadphoneConnected(context)
-                }
-            }
-        } else null
-
-        val filter = IntentFilter().apply {
-            addAction(AudioManager.ACTION_HEADSET_PLUG)
-            addAction("android.bluetooth.adapter.action.STATE_CHANGED")
-            addAction("android.bluetooth.device.action.ACL_CONNECTED")
-            addAction("android.bluetooth.device.action.ACL_DISCONNECTED")
-            addAction("android.media.AUDIO_BECOMING_NOISY")
-        }
-        
-        context.registerReceiver(receiver, filter)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && callback != null) {
-            audioManager.registerAudioDeviceCallback(callback, Handler(Looper.getMainLooper()))
-        }
-
-        awaitDispose {
-            context.unregisterReceiver(receiver)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && callback != null) {
-                audioManager.unregisterAudioDeviceCallback(callback)
-            }
-        }
-    }
-
     // Listen Together state (reactive)
     val listenTogetherManager = LocalListenTogetherManager.current
     val listenTogetherRoleState = listenTogetherManager?.role?.collectAsState(initial = com.music.vivi.listentogether.RoomRole.NONE)
@@ -274,137 +232,10 @@ fun PlayerQueue(
 
     var locked by rememberPreference(QueueEditLockKey, defaultValue = true)
 
-    val (showCommentButton) = rememberPreference(
-        ShowCommentButtonKey,
-        defaultValue = true
-    )
-
     val snackbarHostState = remember { SnackbarHostState() }
     var dismissJob: Job? by remember { mutableStateOf(null) }
 
-    var showSleepTimerDialog by remember { mutableStateOf(false) }
-    var sleepTimerValue by remember { mutableFloatStateOf(30f) }
-    val sleepTimerEnabled = remember(
-        playerConnection.service.sleepTimer.triggerTime,
-        playerConnection.service.sleepTimer.pauseWhenSongEnd
-    ) {
-        playerConnection.service.sleepTimer.isActive
-    }
-    var sleepTimerTimeLeft by remember { mutableLongStateOf(0L) }
-    var showCommentSheet by rememberSaveable { mutableStateOf(false) }
-
-    LaunchedEffect(sleepTimerEnabled) {
-        if (sleepTimerEnabled) {
-            while (isActive) {
-                sleepTimerTimeLeft = if (playerConnection.service.sleepTimer.pauseWhenSongEnd) {
-                    playerConnection.player.duration - playerConnection.player.currentPosition
-                } else {
-                    playerConnection.service.sleepTimer.triggerTime - System.currentTimeMillis()
-                }
-                delay(1000L)
-            }
-        }
-    }
-
-    BottomSheet(
-        state = state,
-        modifier = modifier,
-        background = {
-            Box(Modifier.fillMaxSize().background(Color.Unspecified))
-        },
-        collapsedContent = {
-            theme.QueueBar(
-                PlayerQueueBarArgs(
-                    mediaMetadata = mediaMetadata,
-                    playerConnection = playerConnection,
-                    navController = navController,
-                    playerBottomSheetState = playerBottomSheetState,
-                    repeatMode = repeatMode,
-                    sleepTimerEnabled = sleepTimerEnabled,
-                    sleepTimerTimeLeft = sleepTimerTimeLeft,
-                    isListenTogetherGuest = isListenTogetherGuest,
-                    isBluetoothConnected = isBluetoothConnected,
-                    showInlineLyrics = showInlineLyrics,
-                    showCommentButton = showCommentButton,
-                    showCommentSheet = showCommentSheet,
-                    playerBackground = playerBackground,
-                    textColor = TextBackgroundColor,
-                    textButtonColor = textButtonColor,
-                    iconButtonColor = iconButtonColor,
-                    onOpenQueue = { state.expandSoft() },
-                    onToggleLyrics = onToggleLyrics,
-                    onShowSleepTimerDialog = { showSleepTimerDialog = true },
-                    onShowComments = { showCommentSheet = true },
-                    onShowAudioDevices = { showAudioDeviceBottomSheet = true },
-                )
-            )
-            if (showAudioDeviceBottomSheet) {
-                AudioDeviceBottomSheet(onDismiss = { showAudioDeviceBottomSheet = false })
-            }
-
-            if (showSleepTimerDialog) {
-                ActionPromptDialog(
-                    titleBar = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = stringResource(R.string.sleep_timer),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 1,
-                                style = MaterialTheme.typography.headlineSmall,
-                            )
-                        }
-                    },
-                    onDismiss = { showSleepTimerDialog = false },
-                    onConfirm = {
-                        showSleepTimerDialog = false
-                        playerConnection.service.sleepTimer.start(sleepTimerValue.roundToInt())
-                    },
-                    onCancel = {
-                        showSleepTimerDialog = false
-                    },
-                    onReset = {
-                        sleepTimerValue = 30f // Default value
-                    },
-                    content = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = pluralStringResource(
-                                    R.plurals.minute,
-                                    sleepTimerValue.roundToInt(),
-                                    sleepTimerValue.roundToInt()
-                                ),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-
-                            Spacer(Modifier.height(16.dp))
-
-                            Slider(
-                                value = sleepTimerValue,
-                                onValueChange = { sleepTimerValue = it },
-                                valueRange = 5f..120f,
-                                steps = (120 - 5) / 5 - 1,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Spacer(Modifier.height(8.dp))
-
-                            OutlinedButton(
-                                onClick = {
-                                    showSleepTimerDialog = false
-                                    playerConnection.service.sleepTimer.start(-1)
-                                }
-                            ) {
-                                Text(stringResource(R.string.end_of_song))
-                            }
-                        }
-                    }
-                )
-            }
-        },
-    ) {
+    val listContent: @Composable () -> Unit = {
         val queueTitle by playerConnection.queueTitle.collectAsState()
         val radioChips by playerConnection.radioChips.collectAsState()
         val queueWindows by playerConnection.queueWindows.collectAsState()
@@ -572,35 +403,38 @@ fun PlayerQueue(
                         }
                     }
 
-                    val moreDescription = stringResource(R.string.more_options)
-                    TooltipBox(
-                        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
-                        tooltip = { PlainTooltip { Text(moreDescription) } },
-                        state = rememberTooltipState(),
-                    ) {
-                        FilledTonalIconButton(
-                            onClick = {
-                                menuState.show {
-                                    PlayerMenu(
-                                        mediaMetadata = mediaMetadata,
-                                        navController = navController,
-                                        playerBottomSheetState = playerBottomSheetState,
-                                        onShowDetailsDialog = {
-                                            mediaMetadata?.id?.let {
-                                                bottomSheetPageState.show {
-                                                    ShowMediaInfo(it)
-                                                }
-                                            }
-                                        },
-                                        onDismiss = menuState::dismiss
-                                    )
-                                }
-                            }
+                    // Docked beside the player, the queue bar's more button already opens this menu.
+                    if (!docked) {
+                        val moreDescription = stringResource(R.string.more_options)
+                        TooltipBox(
+                            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                            tooltip = { PlainTooltip { Text(moreDescription) } },
+                            state = rememberTooltipState(),
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.more_vert),
-                                contentDescription = moreDescription,
-                            )
+                            FilledTonalIconButton(
+                                onClick = {
+                                    menuState.show {
+                                        PlayerMenu(
+                                            mediaMetadata = mediaMetadata,
+                                            navController = navController,
+                                            playerBottomSheetState = playerBottomSheetState,
+                                            onShowDetailsDialog = {
+                                                mediaMetadata?.id?.let {
+                                                    bottomSheetPageState.show {
+                                                        ShowMediaInfo(it)
+                                                    }
+                                                }
+                                            },
+                                            onDismiss = menuState::dismiss
+                                        )
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.more_vert),
+                                    contentDescription = moreDescription,
+                                )
+                            }
                         }
                     }
                 }
@@ -880,7 +714,7 @@ fun PlayerQueue(
                             ).asPaddingValues(),
                     modifier = Modifier
                         .fillMaxSize()
-                        .nestedScroll(state.preUpPostDownNestedScrollConnection)
+                        .then(if (docked) Modifier else Modifier.nestedScroll(state.preUpPostDownNestedScrollConnection))
                 ) {
                     item(key = "queue_top_spacer") {
                         Spacer(
@@ -1166,6 +1000,226 @@ fun PlayerQueue(
         }
     }
 
+    if (docked) {
+        Box(modifier = modifier) {
+            listContent()
+        }
+    } else {
+        BottomSheet(
+            state = state,
+            modifier = modifier,
+            background = {
+                Box(Modifier.fillMaxSize().background(Color.Unspecified))
+            },
+            collapsedContent = {
+                PlayerQueueBar(
+                    theme = theme,
+                    navController = navController,
+                    playerBottomSheetState = playerBottomSheetState,
+                    textColor = TextBackgroundColor,
+                    textButtonColor = textButtonColor,
+                    iconButtonColor = iconButtonColor,
+                    showInlineLyrics = showInlineLyrics,
+                    playerBackground = playerBackground,
+                    onToggleLyrics = onToggleLyrics,
+                    onOpenQueue = { state.expandSoft() },
+                )
+            },
+        ) {
+            listContent()
+        }
+    }
+}
+
+/**
+ * The theme's queue bar plus the dialogs and sheets its buttons open. Shown at the bottom of the
+ * queue sheet, or under the controls when the queue is docked beside the player.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun PlayerQueueBar(
+    theme: SlotPlayerTheme,
+    navController: NavController,
+    playerBottomSheetState: BottomSheetState,
+    textColor: Color,
+    textButtonColor: Color,
+    iconButtonColor: Color,
+    showInlineLyrics: Boolean,
+    playerBackground: PlayerBackgroundStyle,
+    onToggleLyrics: () -> Unit,
+    onOpenQueue: () -> Unit,
+) {
+    val context = LocalContext.current
+    var showAudioDeviceBottomSheet by remember { mutableStateOf(false) }
+
+    val isBluetoothConnected by produceState(initialValue = isBluetoothHeadphoneConnected(context)) {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                value = isBluetoothHeadphoneConnected(context)
+            }
+        }
+
+        val callback = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            object : android.media.AudioDeviceCallback() {
+                override fun onAudioDevicesAdded(addedDevices: Array<out android.media.AudioDeviceInfo>?) {
+                    value = isBluetoothHeadphoneConnected(context)
+                }
+                override fun onAudioDevicesRemoved(removedDevices: Array<out android.media.AudioDeviceInfo>?) {
+                    value = isBluetoothHeadphoneConnected(context)
+                }
+            }
+        } else null
+
+        val filter = IntentFilter().apply {
+            addAction(AudioManager.ACTION_HEADSET_PLUG)
+            addAction("android.bluetooth.adapter.action.STATE_CHANGED")
+            addAction("android.bluetooth.device.action.ACL_CONNECTED")
+            addAction("android.bluetooth.device.action.ACL_DISCONNECTED")
+            addAction("android.media.AUDIO_BECOMING_NOISY")
+        }
+        
+        context.registerReceiver(receiver, filter)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && callback != null) {
+            audioManager.registerAudioDeviceCallback(callback, Handler(Looper.getMainLooper()))
+        }
+
+        awaitDispose {
+            context.unregisterReceiver(receiver)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && callback != null) {
+                audioManager.unregisterAudioDeviceCallback(callback)
+            }
+        }
+    }
+
+    val listenTogetherManager = LocalListenTogetherManager.current
+    val listenTogetherRoleState = listenTogetherManager?.role?.collectAsState(initial = RoomRole.NONE)
+    val isListenTogetherGuest = listenTogetherRoleState?.value == RoomRole.GUEST
+
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val repeatMode by playerConnection.repeatMode.collectAsState()
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+
+    val (showCommentButton) = rememberPreference(
+        ShowCommentButtonKey,
+        defaultValue = true
+    )
+
+    var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var sleepTimerValue by remember { mutableFloatStateOf(30f) }
+    val sleepTimerEnabled = remember(
+        playerConnection.service.sleepTimer.triggerTime,
+        playerConnection.service.sleepTimer.pauseWhenSongEnd
+    ) {
+        playerConnection.service.sleepTimer.isActive
+    }
+    var sleepTimerTimeLeft by remember { mutableLongStateOf(0L) }
+    var showCommentSheet by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(sleepTimerEnabled) {
+        if (sleepTimerEnabled) {
+            while (isActive) {
+                sleepTimerTimeLeft = if (playerConnection.service.sleepTimer.pauseWhenSongEnd) {
+                    playerConnection.player.duration - playerConnection.player.currentPosition
+                } else {
+                    playerConnection.service.sleepTimer.triggerTime - System.currentTimeMillis()
+                }
+                delay(1000L)
+            }
+        }
+    }
+
+    theme.QueueBar(
+        PlayerQueueBarArgs(
+            mediaMetadata = mediaMetadata,
+            playerConnection = playerConnection,
+            navController = navController,
+            playerBottomSheetState = playerBottomSheetState,
+            repeatMode = repeatMode,
+            sleepTimerEnabled = sleepTimerEnabled,
+            sleepTimerTimeLeft = sleepTimerTimeLeft,
+            isListenTogetherGuest = isListenTogetherGuest,
+            isBluetoothConnected = isBluetoothConnected,
+            showInlineLyrics = showInlineLyrics,
+            showCommentButton = showCommentButton,
+            showCommentSheet = showCommentSheet,
+            playerBackground = playerBackground,
+            textColor = textColor,
+            textButtonColor = textButtonColor,
+            iconButtonColor = iconButtonColor,
+            onOpenQueue = onOpenQueue,
+            onToggleLyrics = onToggleLyrics,
+            onShowSleepTimerDialog = { showSleepTimerDialog = true },
+            onShowComments = { showCommentSheet = true },
+            onShowAudioDevices = { showAudioDeviceBottomSheet = true },
+        )
+    )
+    if (showAudioDeviceBottomSheet) {
+        AudioDeviceBottomSheet(onDismiss = { showAudioDeviceBottomSheet = false })
+    }
+
+    if (showSleepTimerDialog) {
+        ActionPromptDialog(
+            titleBar = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.sleep_timer),
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                }
+            },
+            onDismiss = { showSleepTimerDialog = false },
+            onConfirm = {
+                showSleepTimerDialog = false
+                playerConnection.service.sleepTimer.start(sleepTimerValue.roundToInt())
+            },
+            onCancel = {
+                showSleepTimerDialog = false
+            },
+            onReset = {
+                sleepTimerValue = 30f // Default value
+            },
+            content = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = pluralStringResource(
+                            R.plurals.minute,
+                            sleepTimerValue.roundToInt(),
+                            sleepTimerValue.roundToInt()
+                        ),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Slider(
+                        value = sleepTimerValue,
+                        onValueChange = { sleepTimerValue = it },
+                        valueRange = 5f..120f,
+                        steps = (120 - 5) / 5 - 1,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            showSleepTimerDialog = false
+                            playerConnection.service.sleepTimer.start(-1)
+                        }
+                    ) {
+                        Text(stringResource(R.string.end_of_song))
+                    }
+                }
+            }
+        )
+    }
     if (showCommentSheet) {
         CommentSheet(
             videoId = mediaMetadata?.id ?: "",

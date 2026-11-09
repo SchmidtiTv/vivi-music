@@ -49,6 +49,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -100,6 +101,8 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -129,10 +132,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import dev.chrisbanes.haze.HazeState
 import androidx.core.net.toUri
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.hazeEffect
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.media3.common.C
@@ -194,6 +193,7 @@ import com.music.vivi.ui.menu.PlayerMenu
 import com.music.vivi.ui.player.fullscreen.PlayerActionsArgs
 import com.music.vivi.ui.player.fullscreen.PlayerControlsArgs
 import com.music.vivi.ui.player.fullscreen.PlayerQueueArgs
+import com.music.vivi.ui.player.fullscreen.PlayerQueueBar
 import com.music.vivi.ui.player.fullscreen.PlayerTimeBadgeArgs
 import com.music.vivi.ui.player.fullscreen.SlotPlayerTheme
 import com.music.vivi.ui.player.fullscreen.StandalonePlayerTheme
@@ -225,6 +225,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.ExoPlayer
@@ -985,20 +986,71 @@ fun BottomSheetPlayer(
                         label = "spotifyCanvasBackground"
                     ) { url ->
                         if (url != null) {
-                            Box(modifier = Modifier.fillMaxSize().alpha(backgroundAlpha)) {
-                                if (backgroundAlpha > 0.01f) {
-                                    BackgroundVideoView(
-                                        videoUrl = url,
-                                        isPlaying = isPlaying,
-                                        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
+                            // The canvas is a portrait video; across a whole landscape tablet it would be
+                            // cropped to a thin strip, so there it only fills the controls half.
+                            val canvasOnStartHalf = LocalAdaptiveLayout.current.playerQueueBeside
+                            val dimmer: @Composable () -> Unit = {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .background(Color.Black.copy(alpha = overlayAlpha))
                                 )
+                            }
+                            Box(modifier = Modifier.fillMaxSize().alpha(backgroundAlpha)) {
+                                if (backgroundAlpha > 0.01f) {
+                                    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+                                    if (canvasOnStartHalf) {
+                                        // Blurred cover fills the queue/lyrics half and shows through the canvas fade.
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .data(mediaMetadata?.thumbnailUrl)
+                                                .size(100, 100)
+                                                .crossfade(600)
+                                                .allowHardware(false)
+                                                .build(),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.FillBounds,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .blur(120.dp)
+                                        )
+                                        // Only the blurred side is dimmed; lyrics and the queue sit there, not on the video.
+                                        dimmer()
+                                    }
+                                    BackgroundVideoView(
+                                        videoUrl = url,
+                                        isPlaying = isPlaying,
+                                        resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+                                        modifier = if (canvasOnStartHalf) {
+                                            Modifier
+                                                .fillMaxWidth(0.5f)
+                                                .fillMaxHeight()
+                                                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                                                .drawWithContent {
+                                                    drawContent()
+                                                    val stops = arrayOf(
+                                                        0.00f to Color.Black,
+                                                        0.75f to Color.Black,
+                                                        0.92f to Color.Black.copy(alpha = 0.4f),
+                                                        1.00f to Color.Transparent,
+                                                    )
+                                                    drawRect(
+                                                        brush = Brush.horizontalGradient(
+                                                            colorStops = if (isRtl) {
+                                                                stops.reversedArray().map { (f, c) -> 1f - f to c }.toTypedArray()
+                                                            } else {
+                                                                stops
+                                                            }
+                                                        ),
+                                                        blendMode = BlendMode.DstIn
+                                                    )
+                                                }
+                                        } else {
+                                            Modifier.fillMaxSize()
+                                        }
+                                    )
+                                }
+                                if (!canvasOnStartHalf) dimmer()
                             }
                         }
                     }
@@ -1271,15 +1323,17 @@ fun BottomSheetPlayer(
                                     )
 
                                     // Layer 2: Clear Artwork (Dissolves along smootherStep into backdrop)
+                                    // On tablets it covers only the left half; the queue or lyrics side stays blurred.
+                                    val artworkOnLeftHalf = LocalAdaptiveLayout.current.playerQueueBeside
                                     val clearArtworkAlpha by animateFloatAsState(
-                                        targetValue = if (showInlineLyrics) 0f else 1f,
+                                        targetValue = if (showInlineLyrics && !artworkOnLeftHalf) 0f else 1f,
                                         animationSpec = tween(500),
                                         label = "clearArtworkAlpha"
                                     )
                                     
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
+                                            .fillMaxWidth(if (artworkOnLeftHalf) 0.5f else 1f)
                                             .fillMaxHeight(0.65f) // Occupies top 65%
                                             .alpha(clearArtworkAlpha)
                                             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
@@ -1297,6 +1351,20 @@ fun BottomSheetPlayer(
                                                     ),
                                                     blendMode = BlendMode.DstIn
                                                 )
+                                                // Same blend on the right edge when the artwork stops halfway across
+                                                if (artworkOnLeftHalf) {
+                                                    drawRect(
+                                                        brush = Brush.horizontalGradient(
+                                                            colorStops = arrayOf(
+                                                                0.00f to Color.Black,
+                                                                0.75f to Color.Black,
+                                                                0.92f to Color.Black.copy(alpha = 0.4f),
+                                                                1.00f to Color.Transparent,
+                                                            )
+                                                        ),
+                                                        blendMode = BlendMode.DstIn
+                                                    )
+                                                }
                                             }
                                     ) {
                                         AsyncImage(
@@ -1350,7 +1418,7 @@ fun BottomSheetPlayer(
         },
     ) {
         if (playerTheme is StandalonePlayerTheme) {
-            playerTheme.Content(state, navController, modifier)
+            playerTheme.Content(state, navController, modifier, slideFromStart)
         } else if (playerTheme is SlotPlayerTheme) {
             val theme: SlotPlayerTheme = playerTheme
             val controlsContent: @Composable ColumnScope.(MediaMetadata) -> Unit = { mediaMetadata ->
@@ -1363,7 +1431,7 @@ fun BottomSheetPlayer(
                     .padding(horizontal = PlayerHorizontalPadding),
             ) {
                 AnimatedContent(
-                    targetState = showInlineLyrics || spotifyCanvasUrl != null,
+                    targetState = (showInlineLyrics && !LocalAdaptiveLayout.current.playerQueueBeside) || spotifyCanvasUrl != null,
                     label = "ThumbnailAnimation"
                 ) { showSmallThumbnail ->
                     if (showSmallThumbnail) {
@@ -1871,8 +1939,153 @@ fun BottomSheetPlayer(
             }
         }
 
-        when (LocalAdaptiveLayout.current.playerSideBySide) {
-            true -> {
+        val adaptiveLayout = LocalAdaptiveLayout.current
+        val queueBackground = if (useBlackBackground) Color.Black else MaterialTheme.colorScheme.surface
+        val queueArgs = { docked: Boolean ->
+            PlayerQueueArgs(
+                docked = docked,
+                queueSheetState = queueSheetState,
+                playerBottomSheetState = state,
+                navController = navController,
+                background = queueBackground,
+                onBackgroundColor = onBackgroundColor,
+                textColor = TextBackgroundColor,
+                textButtonColor = textButtonColor,
+                iconButtonColor = iconButtonColor,
+                pureBlack = pureBlack,
+                showInlineLyrics = showInlineLyrics,
+                playerBackground = playerBackground,
+                onToggleLyrics = {
+                    showInlineLyrics = !showInlineLyrics
+                },
+            )
+        }
+
+        when {
+            adaptiveLayout.playerQueueBeside -> {
+                val density = LocalDensity.current
+                val verticalPadding = max(
+                    WindowInsets.systemBars.getTop(density),
+                    WindowInsets.systemBars.getBottom(density)
+                )
+                val verticalPaddingDp = with(density) { verticalPadding.toDp() }
+                val verticalWindowInsets = WindowInsets(left = 0.dp, top = verticalPaddingDp, right = 0.dp, bottom = verticalPaddingDp)
+
+                Row(
+                    modifier = Modifier
+                        .windowInsetsPadding(
+                            WindowInsets.systemBars.only(WindowInsetsSides.Horizontal).add(verticalWindowInsets)
+                        )
+                        .padding(bottom = 24.dp)
+                        .fillMaxSize()
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .then(sheetNestedScroll)
+                        ) {
+                            if (spotifyCanvasUrl == null && playerBackground != PlayerBackgroundStyle.APPLE_MUSIC) {
+                                val currentSliderPosition by rememberUpdatedState(sliderPosition)
+                                val sliderPositionProvider = remember { { currentSliderPosition } }
+                                val isExpandedProvider = remember(state) { { state.isExpanded } }
+                                Thumbnail(
+                                    sliderPositionProvider = sliderPositionProvider,
+                                    modifier = Modifier.animateContentSize(),
+                                    isPlayerExpanded = isExpandedProvider,
+                                    isLandscape = true,
+                                    isListenTogetherGuest = isListenTogetherGuest
+                                )
+                            }
+                        }
+
+                        mediaMetadata?.let {
+                            controlsContent(it)
+                        }
+
+                        AnimatedVisibility(visible = !isFullScreen) {
+                            // Same height as the collapsed queue sheet, which is what sizes the bar's buttons.
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(QueuePeekHeight)
+                                    .consumeWindowInsets(WindowInsets.systemBars)
+                            ) {
+                                PlayerQueueBar(
+                                    theme = theme,
+                                    navController = navController,
+                                    playerBottomSheetState = state,
+                                    textColor = TextBackgroundColor,
+                                    textButtonColor = textButtonColor,
+                                    iconButtonColor = iconButtonColor,
+                                    showInlineLyrics = showInlineLyrics,
+                                    playerBackground = playerBackground,
+                                    onToggleLyrics = { showInlineLyrics = !showInlineLyrics },
+                                    onOpenQueue = { showInlineLyrics = false },
+                                )
+                            }
+                        }
+                    }
+
+                    // Lyrics or the queue; the queue bar's lyrics and queue buttons switch between them.
+                    // The queue stays composed and only fades, so switching back doesn't rebuild the
+                    // whole list. Lyrics follow playback, so they are composed only while visible.
+                    val lyricsAlpha by animateFloatAsState(
+                        targetValue = if (showInlineLyrics) 1f else 0f,
+                        label = "lyricsAlpha"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
+                        // The window insets are already applied by the Row; don't add them again inside the queue.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer { alpha = 1f - lyricsAlpha }
+                                .then(if (showInlineLyrics) Modifier.clearAndSetSemantics {} else Modifier)
+                                .padding(start = 16.dp, end = 16.dp)
+                                .clip(RoundedCornerShape(28.dp))
+                                .consumeWindowInsets(WindowInsets.systemBars)
+                        ) {
+                            theme.Queue(queueArgs(true))
+                        }
+
+                        if (showInlineLyrics || lyricsAlpha > 0f) {
+                            // Keeps taps away from the hidden queue underneath.
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .pointerInput(Unit) {
+                                        awaitPointerEventScope {
+                                            while (true) {
+                                                awaitPointerEvent().changes.forEach { it.consume() }
+                                            }
+                                        }
+                                    }
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { alpha = lyricsAlpha }
+                            ) {
+                                InlineLyricsView(
+                                    mediaMetadata = mediaMetadata,
+                                    showLyrics = true,
+                                    positionProvider = { sliderPosition ?: effectivePosition }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            adaptiveLayout.playerSideBySide -> {
                 // Calculate vertical padding like OuterTune
                 val density = LocalDensity.current
                 val verticalPadding = max(
@@ -1993,33 +2206,14 @@ fun BottomSheetPlayer(
             }
         }
 
-        AnimatedVisibility(
-            visible = !isFullScreen,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = shrinkVertically(shrinkTowards = Alignment.Top) + slideOutVertically(targetOffsetY = { it }) + fadeOut()
-        ) {
-            theme.Queue(
-                PlayerQueueArgs(
-                    queueSheetState = queueSheetState,
-                    playerBottomSheetState = state,
-                    navController = navController,
-                    background = if (useBlackBackground) {
-                        Color.Black
-                    } else {
-                        MaterialTheme.colorScheme.surface //fixed the issue causing the queue ui not good surfacecontainer
-                    },
-                    onBackgroundColor = onBackgroundColor,
-                    textColor = TextBackgroundColor,
-                    textButtonColor = textButtonColor,
-                    iconButtonColor = iconButtonColor,
-                    pureBlack = pureBlack,
-                    showInlineLyrics = showInlineLyrics,
-                    playerBackground = playerBackground,
-                    onToggleLyrics = {
-                        showInlineLyrics = !showInlineLyrics
-                    },
-                )
-            )
+        if (!adaptiveLayout.playerQueueBeside) {
+            AnimatedVisibility(
+                visible = !isFullScreen,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = shrinkVertically(shrinkTowards = Alignment.Top) + slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
+                theme.Queue(queueArgs(false))
+            }
         }
     }
     }

@@ -194,6 +194,7 @@ object ApplePlayerTheme : SlotPlayerTheme {
     @Composable
     override fun Queue(args: PlayerQueueArgs) {
         PlayerQueue(
+            docked = args.docked,
             state = args.queueSheetState,
             playerBottomSheetState = args.playerBottomSheetState,
             navController = args.navController,

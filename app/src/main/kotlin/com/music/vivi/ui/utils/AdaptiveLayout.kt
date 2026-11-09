@@ -16,6 +16,10 @@ data class AdaptiveLayout(
     val miniPlayerInRail: Boolean,
     val constrainMiniPlayer: Boolean,
     val playerSideBySide: Boolean,
+    // Tablets only: landscape phones are too short to stack the cover, controls and queue bar.
+    val playerQueueBeside: Boolean,
+    // Detail pages (e.g. artist) show their header in a side pane next to the content.
+    val twoPaneDetails: Boolean,
 )
 
 val LocalAdaptiveLayout = staticCompositionLocalOf<AdaptiveLayout> {
@@ -34,6 +38,8 @@ fun rememberAdaptiveLayout(): AdaptiveLayout {
             miniPlayerInRail = mediumWidth && !compactHeight,
             constrainMiniPlayer = expandedWidth,
             playerSideBySide = expandedWidth || compactHeight,
+            playerQueueBeside = expandedWidth && !compactHeight,
+            twoPaneDetails = expandedWidth && !compactHeight,
         )
     }
 }

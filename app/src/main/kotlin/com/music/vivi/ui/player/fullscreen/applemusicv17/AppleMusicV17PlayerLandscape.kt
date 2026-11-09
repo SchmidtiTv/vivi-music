@@ -92,6 +92,7 @@ import com.music.vivi.ui.component.PlayerSliderTrack
 import com.music.vivi.ui.menu.LyricsMenu
 import com.music.vivi.ui.menu.OldPlayerMenu
 import com.music.vivi.ui.theme.PlayerSliderColors
+import com.music.vivi.ui.utils.LocalAdaptiveLayout
 import com.music.vivi.ui.utils.ShowMediaInfo
 import com.music.vivi.ui.utils.ShowOffsetDialog
 import com.music.vivi.ui.utils.resize
@@ -109,7 +110,8 @@ import com.music.vivi.ui.screens.settings.integrations.ListenTogetherAvatarList
 fun AppleMusicV17PlayerLandscape(
     state: BottomSheetState,
     navController: NavController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    slideFromStart: Boolean = false,
 ) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -121,6 +123,12 @@ fun AppleMusicV17PlayerLandscape(
     val menuState = LocalMenuState.current
     val bottomSheetPageState = LocalBottomSheetPageState.current
     var playerState by remember { mutableStateOf(PlayerInternalState.COVER) }
+    val queueBeside = LocalAdaptiveLayout.current.playerQueueBeside
+    val rightPaneState = if (queueBeside && playerState == PlayerInternalState.COVER) {
+        PlayerInternalState.QUEUE
+    } else {
+        playerState
+    }
 
     val listenTogetherManager = LocalListenTogetherManager.current
     val listenTogetherRoleState = listenTogetherManager?.role?.collectAsState(initial = RoomRole.NONE)
@@ -541,6 +549,421 @@ fun AppleMusicV17PlayerLandscape(
             }
         }
 
+        val showLyricsMenu: () -> Unit = {
+            mediaMetadata?.let { metadata ->
+                menuState.show {
+                    LyricsMenu(
+                        lyricsProvider = { currentLyrics },
+                        songProvider = { currentSong?.song },
+                        mediaMetadataProvider = { metadata },
+                        onDismiss = menuState::dismiss,
+                        onShowOffsetDialog = {
+                            bottomSheetPageState.show {
+                                ShowOffsetDialog(
+                                    songProvider = { currentSong?.song }
+                                )
+                            }
+                        }
+                    )
+                }
+            }
+        }
+
+        val nowPlayingControls: @Composable () -> Unit = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text(
+                        text = displayedMetadata?.title ?: "Unknown",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = adaptivePrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp)
+                            .clickable {
+                                displayedMetadata?.album?.id?.let {
+                                    navController.navigate("album/$it")
+                                    state.collapseSoft()
+                                }
+                            }
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    val lArtists = displayedMetadata?.artists.orEmpty().filter { it.name.isNotBlank() }
+                    if (lArtists.isNotEmpty()) {
+                        val annotatedString = buildAnnotatedString {
+                            withStyle(
+                                SpanStyle(
+                                    color = adaptiveSecondary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            ) {
+                                lArtists.forEachIndexed { index, artist ->
+                                    val tag = "artist_${artist.id.orEmpty()}"
+                                    pushStringAnnotation(tag = tag, annotation = artist.id.orEmpty())
+                                    append(artist.name)
+                                    pop()
+                                    if (index != lArtists.lastIndex) append(", ")
+                                }
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (displayedMetadata?.explicit == true) {
+                                MIcon.Explicit(tint = adaptiveSecondary)
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp)
+                            ) {
+                                var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+                                var clickOffset by remember { mutableStateOf<Offset?>(null) }
+                                Text(
+                                    text = annotatedString,
+                                    color = adaptiveSecondary,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    onTextLayout = { layoutResult = it },
+                                    modifier = Modifier
+                                        .pointerInput(Unit) {
+                                            awaitPointerEventScope {
+                                                while (true) {
+                                                    val event = awaitPointerEvent()
+                                                    val tapPosition = event.changes.firstOrNull()?.position
+                                                    if (tapPosition != null) {
+                                                        clickOffset = tapPosition
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            val tapPosition = clickOffset
+                                            val layout = layoutResult
+                                            if (tapPosition != null && layout != null) {
+                                                val offset = layout.getOffsetForPosition(tapPosition)
+                                                annotatedString
+                                                    .getStringAnnotations(offset, offset)
+                                                    .firstOrNull()
+                                                    ?.let { ann ->
+                                                        val artistId = ann.item
+                                                        if (artistId.isNotBlank()) {
+                                                            navController.navigate("artist/$artistId")
+                                                            state.collapseSoft()
+                                                        }
+                                                    }
+                                            }
+                                        }
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "Unknown",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = adaptiveSecondary,
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val isLiked = currentSong?.song?.liked == true
+                    IconButton(
+                        onClick = playerConnection::toggleLike,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                if (isLiked) R.drawable.ic_nowplaying_favorited else R.drawable.ic_nowplaying_favorite
+                            ),
+                            contentDescription = "Like",
+                            tint = adaptivePrimary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    IconButton(
+                        onClick = {
+                            menuState.show {
+                                OldPlayerMenu(
+                                    mediaMetadata = mediaMetadata,
+                                    navController = navController,
+                                    playerBottomSheetState = state,
+                                    onShowDetailsDialog = {
+                                        mediaMetadata?.id?.let {
+                                            bottomSheetPageState.show {
+                                                ShowMediaInfo(it)
+                                            }
+                                        }
+                                    },
+                                    onDismiss = menuState::dismiss
+                                )
+                            }
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_nowplaying_more),
+                            contentDescription = "More",
+                            tint = adaptivePrimary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Progress Slider & Timestamps
+            Column(modifier = Modifier.fillMaxWidth()) {
+                val currentPos = sliderPosition ?: position
+                val trackInteractionSource = remember { MutableInteractionSource() }
+                val isTrackDragged by trackInteractionSource.collectIsDraggedAsState()
+                val isTrackPressed by trackInteractionSource.collectIsPressedAsState()
+                val isTrackActive = isTrackDragged || isTrackPressed
+
+                val trackHeight by animateDpAsState(
+                    targetValue = if (isTrackActive) 10.dp else 7.25.dp,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    ),
+                    label = "landscapeTrackScale"
+                )
+
+                Slider(
+                    value = currentPos.toFloat(),
+                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                    onValueChange = { value ->
+                        if (!isListenTogetherGuest) {
+                            sliderPosition = value.toLong()
+                        }
+                    },
+                    onValueChangeFinished = {
+                        if (!isListenTogetherGuest) {
+                            sliderPosition?.let { pos ->
+                                onSeek(pos)
+                            }
+                            sliderPosition = null
+                        }
+                    },
+                    interactionSource = trackInteractionSource,
+                    thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                    track = { sliderState ->
+                        PlayerSliderTrack(
+                            sliderState = sliderState,
+                            trackHeight = trackHeight,
+                            colors = PlayerSliderColors.getSliderColors(
+                                activeColor = sliderActiveColor,
+                                playerBackground = playerBackground,
+                                useDarkTheme = useDarkTheme
+                            )
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(28.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = makeTimeString(currentPos),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = adaptiveSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (crossfadeEnabled && (mixAlpha > 0.001f || isMixing)) {
+                        Text(
+                            text = "Mixing",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                brush = mixingShimmerBrush,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            modifier = Modifier.graphicsLayer { alpha = mixAlpha }
+                        )
+                    }
+                    Text(
+                        text = if (duration != C.TIME_UNSET && duration > 0) {
+                            val remaining = duration - currentPos
+                            "-${makeTimeString(remaining.coerceAtLeast(0L))}"
+                        } else {
+                            makeTimeString(duration)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = adaptiveSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Playback Controls Row (Naked Transparent Controls)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Previous
+                IconButton(
+                    onClick = {
+                        if (!isListenTogetherGuest) {
+                            if (isCasting) castHandler?.skipToPrevious()
+                            else if (canSkipPrevious) playerConnection.player.seekToPrevious()
+                        }
+                    },
+                    enabled = !isListenTogetherGuest && canSkipPrevious,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .alpha(if (isListenTogetherGuest || !canSkipPrevious) 0.4f else 1f)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.apple_skip_previous),
+                        contentDescription = "Previous",
+                        tint = adaptivePrimary,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+
+                // Play / Pause
+                IconButton(
+                    onClick = {
+                        if (isListenTogetherGuest) {
+                            playerConnection.toggleMute()
+                        } else if (isCasting) {
+                            if (castIsPlaying) castHandler?.pause() else castHandler?.play()
+                        } else {
+                            playerConnection.player.togglePlayPause()
+                        }
+                    },
+                    modifier = Modifier.size(76.dp)
+                ) {
+                    if (isListenTogetherGuest) {
+                        Icon(
+                            painter = painterResource(if (isMuted) R.drawable.volume_off else R.drawable.volume_up),
+                            contentDescription = if (isMuted) "Unmute" else "Mute",
+                            modifier = Modifier.size(56.dp),
+                            tint = adaptivePrimary
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(
+                                if (effectiveIsPlaying) R.drawable.pause_applemusic else R.drawable.play_applemusic
+                            ),
+                            contentDescription = if (effectiveIsPlaying) "Pause" else "Play",
+                            modifier = Modifier.size(68.dp),
+                            tint = adaptivePrimary
+                        )
+                    }
+                }
+
+                // Next
+                IconButton(
+                    onClick = {
+                        if (!isListenTogetherGuest) {
+                            if (isCasting) castHandler?.skipToNext()
+                            else if (canSkipNext) playerConnection.player.seekToNext()
+                        }
+                    },
+                    enabled = !isListenTogetherGuest && canSkipNext,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .alpha(if (isListenTogetherGuest || !canSkipNext) 0.4f else 1f)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.apple_skip_next),
+                        contentDescription = "Next",
+                        tint = adaptivePrimary,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Volume Slider Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_speaker_24dp),
+                    contentDescription = "Volume Down",
+                    tint = adaptiveSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+
+                val volumeInteractionSource = remember { MutableInteractionSource() }
+                val isVolDragged by volumeInteractionSource.collectIsDraggedAsState()
+                val isVolPressed by volumeInteractionSource.collectIsPressedAsState()
+                val isVolActive = isVolDragged || isVolPressed
+
+                val volHeight by animateDpAsState(
+                    targetValue = if (isVolActive) 10.dp else 7.25.dp,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    ),
+                    label = "landscapeVolHeight"
+                )
+
+                Slider(
+                    value = if (isCasting) castVolume
+                    else if (isVolActive) systemVolume
+                    else animatedVolume,
+                    onValueChange = { newValue ->
+                        onVolumeChange(newValue)
+                    },
+                    interactionSource = volumeInteractionSource,
+                    thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                    track = { sliderState ->
+                        PlayerSliderTrack(
+                            sliderState = sliderState,
+                            trackHeight = volHeight,
+                            colors = PlayerSliderColors.getSliderColors(
+                                activeColor = sliderActiveColor,
+                                playerBackground = playerBackground,
+                                useDarkTheme = useDarkTheme
+                            )
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Icon(
+                    painterResource(R.drawable.ic_speaker_wave_3_24dp),
+                    contentDescription = "Volume Up",
+                    tint = adaptiveSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
         Row(
             modifier = Modifier
                 .windowInsetsPadding(WindowInsets.systemBars)
@@ -618,12 +1041,25 @@ fun AppleMusicV17PlayerLandscape(
             }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            if (queueBeside) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    nowPlayingControls()
+                }
+            }
+
+            Spacer(modifier = Modifier.height(if (queueBeside) 28.dp else 14.dp))
 
             // Bottom Row of Lyrics, Cast/Headphones, Queue
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(bottom = if (queueBeside) 16.dp else 0.dp)
                     .height(48.dp),
                 horizontalArrangement = Arrangement.spacedBy(36.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
@@ -778,7 +1214,7 @@ fun AppleMusicV17PlayerLandscape(
                 }
 
                 // 3. Queue Button (Right)
-                val isQueueActive = playerState == PlayerInternalState.QUEUE
+                val isQueueActive = rightPaneState == PlayerInternalState.QUEUE
                 IconButton(
                     onClick = {
                         playerState = if (isQueueActive) PlayerInternalState.COVER else PlayerInternalState.QUEUE
@@ -811,7 +1247,7 @@ fun AppleMusicV17PlayerLandscape(
             contentAlignment = Alignment.Center
         ) {
             AnimatedContent(
-                targetState = playerState,
+                targetState = rightPaneState,
                 transitionSpec = {
                     (fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing)) togetherWith
                      fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing)))
@@ -830,403 +1266,10 @@ fun AppleMusicV17PlayerLandscape(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Spacer(modifier = Modifier.weight(1f))
-                            // Song Title, Artist & Action Buttons (Star, More)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                                    Text(
-                                        text = displayedMetadata?.title ?: "Unknown",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = adaptivePrimary,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier
-                                            .basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp)
-                                            .clickable {
-                                                displayedMetadata?.album?.id?.let {
-                                                    navController.navigate("album/$it")
-                                                    state.collapseSoft()
-                                                }
-                                            }
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    val lArtists = displayedMetadata?.artists.orEmpty().filter { it.name.isNotBlank() }
-                                    if (lArtists.isNotEmpty()) {
-                                        val annotatedString = buildAnnotatedString {
-                                            withStyle(
-                                                SpanStyle(
-                                                    color = adaptiveSecondary,
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Normal
-                                                )
-                                            ) {
-                                                lArtists.forEachIndexed { index, artist ->
-                                                    val tag = "artist_${artist.id.orEmpty()}"
-                                                    pushStringAnnotation(tag = tag, annotation = artist.id.orEmpty())
-                                                    append(artist.name)
-                                                    pop()
-                                                    if (index != lArtists.lastIndex) append(", ")
-                                                }
-                                            }
-                                        }
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            if (displayedMetadata?.explicit == true) {
-                                                MIcon.Explicit(tint = adaptiveSecondary)
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                            }
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp)
-                                            ) {
-                                                var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-                                                var clickOffset by remember { mutableStateOf<Offset?>(null) }
-                                                Text(
-                                                    text = annotatedString,
-                                                    color = adaptiveSecondary,
-                                                    style = MaterialTheme.typography.bodyLarge,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    onTextLayout = { layoutResult = it },
-                                                    modifier = Modifier
-                                                        .pointerInput(Unit) {
-                                                            awaitPointerEventScope {
-                                                                while (true) {
-                                                                    val event = awaitPointerEvent()
-                                                                    val tapPosition = event.changes.firstOrNull()?.position
-                                                                    if (tapPosition != null) {
-                                                                        clickOffset = tapPosition
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                        .clickable(
-                                                            interactionSource = remember { MutableInteractionSource() },
-                                                            indication = null
-                                                        ) {
-                                                            val tapPosition = clickOffset
-                                                            val layout = layoutResult
-                                                            if (tapPosition != null && layout != null) {
-                                                                val offset = layout.getOffsetForPosition(tapPosition)
-                                                                annotatedString
-                                                                    .getStringAnnotations(offset, offset)
-                                                                    .firstOrNull()
-                                                                    ?.let { ann ->
-                                                                        val artistId = ann.item
-                                                                        if (artistId.isNotBlank()) {
-                                                                            navController.navigate("artist/$artistId")
-                                                                            state.collapseSoft()
-                                                                        }
-                                                                    }
-                                                            }
-                                                        }
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        Text(
-                                            text = "Unknown",
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            color = adaptiveSecondary,
-                                            fontWeight = FontWeight.Normal,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    val isLiked = currentSong?.song?.liked == true
-                                    IconButton(
-                                        onClick = playerConnection::toggleLike,
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(
-                                                if (isLiked) R.drawable.ic_nowplaying_favorited else R.drawable.ic_nowplaying_favorite
-                                            ),
-                                            contentDescription = "Like",
-                                            tint = adaptivePrimary,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(12.dp))
-
-                                    IconButton(
-                                        onClick = {
-                                            menuState.show {
-                                                OldPlayerMenu(
-                                                    mediaMetadata = mediaMetadata,
-                                                    navController = navController,
-                                                    playerBottomSheetState = state,
-                                                    onShowDetailsDialog = {
-                                                        mediaMetadata?.id?.let {
-                                                            bottomSheetPageState.show {
-                                                                ShowMediaInfo(it)
-                                                            }
-                                                        }
-                                                    },
-                                                    onDismiss = menuState::dismiss
-                                                )
-                                            }
-                                        },
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.ic_nowplaying_more),
-                                            contentDescription = "More",
-                                            tint = adaptivePrimary,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Progress Slider & Timestamps
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                val currentPos = sliderPosition ?: position
-                                val trackInteractionSource = remember { MutableInteractionSource() }
-                                val isTrackDragged by trackInteractionSource.collectIsDraggedAsState()
-                                val isTrackPressed by trackInteractionSource.collectIsPressedAsState()
-                                val isTrackActive = isTrackDragged || isTrackPressed
-
-                                val trackHeight by animateDpAsState(
-                                    targetValue = if (isTrackActive) 10.dp else 7.25.dp,
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessMedium
-                                    ),
-                                    label = "landscapeTrackScale"
-                                )
-
-                                Slider(
-                                    value = currentPos.toFloat(),
-                                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                                    onValueChange = { value ->
-                                        if (!isListenTogetherGuest) {
-                                            sliderPosition = value.toLong()
-                                        }
-                                    },
-                                    onValueChangeFinished = {
-                                        if (!isListenTogetherGuest) {
-                                            sliderPosition?.let { pos ->
-                                                onSeek(pos)
-                                            }
-                                            sliderPosition = null
-                                        }
-                                    },
-                                    interactionSource = trackInteractionSource,
-                                    thumb = { Spacer(modifier = Modifier.size(0.dp)) },
-                                    track = { sliderState ->
-                                        PlayerSliderTrack(
-                                            sliderState = sliderState,
-                                            trackHeight = trackHeight,
-                                            colors = PlayerSliderColors.getSliderColors(
-                                                activeColor = sliderActiveColor,
-                                                playerBackground = playerBackground,
-                                                useDarkTheme = useDarkTheme
-                                            )
-                                        )
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(28.dp)
-                                )
-
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 2.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = makeTimeString(currentPos),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = adaptiveSecondary,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    if (crossfadeEnabled && (mixAlpha > 0.001f || isMixing)) {
-                                        Text(
-                                            text = "Mixing",
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                brush = mixingShimmerBrush,
-                                                fontWeight = FontWeight.SemiBold
-                                            ),
-                                            modifier = Modifier.graphicsLayer { alpha = mixAlpha }
-                                        )
-                                    }
-                                    Text(
-                                        text = if (duration != C.TIME_UNSET && duration > 0) {
-                                            val remaining = duration - currentPos
-                                            "-${makeTimeString(remaining.coerceAtLeast(0L))}"
-                                        } else {
-                                            makeTimeString(duration)
-                                        },
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = adaptiveSecondary,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Playback Controls Row (Naked Transparent Controls)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Previous
-                                IconButton(
-                                    onClick = {
-                                        if (!isListenTogetherGuest) {
-                                            if (isCasting) castHandler?.skipToPrevious()
-                                            else if (canSkipPrevious) playerConnection.player.seekToPrevious()
-                                        }
-                                    },
-                                    enabled = !isListenTogetherGuest && canSkipPrevious,
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .alpha(if (isListenTogetherGuest || !canSkipPrevious) 0.4f else 1f)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.apple_skip_previous),
-                                        contentDescription = "Previous",
-                                        tint = adaptivePrimary,
-                                        modifier = Modifier.size(40.dp)
-                                    )
-                                }
-
-                                // Play / Pause
-                                IconButton(
-                                    onClick = {
-                                        if (isListenTogetherGuest) {
-                                            playerConnection.toggleMute()
-                                        } else if (isCasting) {
-                                            if (castIsPlaying) castHandler?.pause() else castHandler?.play()
-                                        } else {
-                                            playerConnection.player.togglePlayPause()
-                                        }
-                                    },
-                                    modifier = Modifier.size(76.dp)
-                                ) {
-                                    if (isListenTogetherGuest) {
-                                        Icon(
-                                            painter = painterResource(if (isMuted) R.drawable.volume_off else R.drawable.volume_up),
-                                            contentDescription = if (isMuted) "Unmute" else "Mute",
-                                            modifier = Modifier.size(56.dp),
-                                            tint = adaptivePrimary
-                                        )
-                                    } else {
-                                        Icon(
-                                            painter = painterResource(
-                                                if (effectiveIsPlaying) R.drawable.pause_applemusic else R.drawable.play_applemusic
-                                            ),
-                                            contentDescription = if (effectiveIsPlaying) "Pause" else "Play",
-                                            modifier = Modifier.size(68.dp),
-                                            tint = adaptivePrimary
-                                        )
-                                    }
-                                }
-
-                                // Next
-                                IconButton(
-                                    onClick = {
-                                        if (!isListenTogetherGuest) {
-                                            if (isCasting) castHandler?.skipToNext()
-                                            else if (canSkipNext) playerConnection.player.seekToNext()
-                                        }
-                                    },
-                                    enabled = !isListenTogetherGuest && canSkipNext,
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .alpha(if (isListenTogetherGuest || !canSkipNext) 0.4f else 1f)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.apple_skip_next),
-                                        contentDescription = "Next",
-                                        tint = adaptivePrimary,
-                                        modifier = Modifier.size(40.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Volume Slider Row
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(36.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                            Icon(
-                                painterResource(R.drawable.ic_speaker_24dp),
-                                contentDescription = "Volume Down",
-                                tint = adaptiveSecondary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                                val volumeInteractionSource = remember { MutableInteractionSource() }
-                            val isVolDragged by volumeInteractionSource.collectIsDraggedAsState()
-                            val isVolPressed by volumeInteractionSource.collectIsPressedAsState()
-                            val isVolActive = isVolDragged || isVolPressed
-
-                            val volHeight by animateDpAsState(
-                                targetValue = if (isVolActive) 10.dp else 7.25.dp,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                ),
-                                label = "landscapeVolHeight"
-                            )
-
-                            Slider(
-                                value = if (isCasting) castVolume
-                                else if (isVolActive) systemVolume
-                                else animatedVolume,
-                                onValueChange = { newValue ->
-                                    onVolumeChange(newValue)
-                                },
-                                interactionSource = volumeInteractionSource,
-                                thumb = { Spacer(modifier = Modifier.size(0.dp)) },
-                                track = { sliderState ->
-                                    PlayerSliderTrack(
-                                        sliderState = sliderState,
-                                        trackHeight = volHeight,
-                                        colors = PlayerSliderColors.getSliderColors(
-                                            activeColor = sliderActiveColor,
-                                            playerBackground = playerBackground,
-                                            useDarkTheme = useDarkTheme
-                                        )
-                                    )
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Icon(
-                                painterResource(R.drawable.ic_speaker_wave_3_24dp),
-                                contentDescription = "Volume Up",
-                                tint = adaptiveSecondary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            nowPlayingControls()
+                            Spacer(modifier = Modifier.weight(1f))
                         }
-
-                        Spacer(modifier = Modifier.weight(1f))
                     }
-                }
 
                     PlayerInternalState.LYRICS -> {
                         // In landscape, when lyrics pressed: pure LyricsV2 with floating circular action buttons (Star on left, Options on right)
@@ -1251,57 +1294,56 @@ fun AppleMusicV17PlayerLandscape(
                                 )
                             }
 
-                            // Small compact circular star/like button at bottom left of lyrics
-                            val isLiked = currentSong?.song?.liked == true
-                            IconButton(
-                                onClick = playerConnection::toggleLike,
-                                modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .padding(start = 16.dp, bottom = 16.dp)
-                                    .size(36.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(
-                                        if (isLiked) R.drawable.ic_nowplaying_favorited else R.drawable.ic_nowplaying_favorite
-                                    ),
-                                    contentDescription = "Like",
-                                    tint = adaptivePrimary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
+                            if (queueBeside) {
+                                IconButton(
+                                    onClick = showLyricsMenu,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(top = 8.dp, end = 8.dp)
+                                        .size(32.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.more_horiz),
+                                        contentDescription = "Lyrics Options",
+                                        tint = adaptiveSecondary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            } else {
+                                // Small compact circular star/like button at bottom left of lyrics
+                                val isLiked = currentSong?.song?.liked == true
+                                IconButton(
+                                    onClick = playerConnection::toggleLike,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(start = 16.dp, bottom = 16.dp)
+                                        .size(36.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(
+                                            if (isLiked) R.drawable.ic_nowplaying_favorited else R.drawable.ic_nowplaying_favorite
+                                        ),
+                                        contentDescription = "Like",
+                                        tint = adaptivePrimary,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
 
-                            // Small compact circular more_vert button at bottom right to open LyricsMenu
-                            IconButton(
-                                onClick = {
-                                    mediaMetadata?.let { metadata ->
-                                        menuState.show {
-                                            LyricsMenu(
-                                                lyricsProvider = { currentLyrics },
-                                                songProvider = { currentSong?.song },
-                                                mediaMetadataProvider = { metadata },
-                                                onDismiss = menuState::dismiss,
-                                                onShowOffsetDialog = {
-                                                    bottomSheetPageState.show {
-                                                        ShowOffsetDialog(
-                                                            songProvider = { currentSong?.song }
-                                                        )
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    }
-                                },
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(end = 16.dp, bottom = 16.dp)
-                                    .size(36.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_nowplaying_more),
-                                    contentDescription = "Lyrics Options",
-                                    tint = adaptivePrimary,
-                                    modifier = Modifier.size(28.dp)
-                                )
+                                // Small compact circular more_vert button at bottom right to open LyricsMenu
+                                IconButton(
+                                    onClick = showLyricsMenu,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(end = 16.dp, bottom = 16.dp)
+                                        .size(36.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_nowplaying_more),
+                                        contentDescription = "Lyrics Options",
+                                        tint = adaptivePrimary,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -1318,6 +1360,12 @@ fun AppleMusicV17PlayerLandscape(
             }
         }
     }
+
+        AppleMusicV17DragHandle(
+            slideFromStart = slideFromStart,
+            color = adaptivePrimary.copy(alpha = 0.3f),
+            onClick = state::collapseSoft,
+        )
 }
 
     if (showAudioDeviceBottomSheet) {

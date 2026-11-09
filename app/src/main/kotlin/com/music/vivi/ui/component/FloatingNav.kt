@@ -57,6 +57,9 @@ import androidx.compose.ui.unit.dp
 import com.music.vivi.ui.screens.Screens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.indication
+import androidx.compose.ui.text.style.TextOverflow
 
 @Composable
 fun FloatingNavigationBar(
@@ -134,6 +137,143 @@ fun FloatingNavigationBar(
                 onSearchLongClick = onSearchLongClick
             )
         }
+    }
+}
+
+/**
+ * [FloatingNavigationBar]'s look for the navigation rail: all screens in one upright pill, each with
+ * a round icon background and its name underneath.
+ */
+@Composable
+fun FloatingNavigationRail(
+    navigationItems: List<Screens>,
+    currentRoute: String?,
+    onItemClick: (Screens, Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    pureBlack: Boolean = false,
+    onSearchLongClick: (() -> Unit)? = null,
+) {
+    val containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer
+    val outlineColor = if (pureBlack) Color(0xFF222222) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+
+    Column(
+        modifier = modifier
+            .width(80.dp)
+            .shadow(elevation = 6.dp, shape = CircleShape)
+            .background(containerColor, shape = CircleShape)
+            .border(width = 1.dp, color = outlineColor, shape = CircleShape)
+            .padding(start = 4.dp, top = 16.dp, end = 4.dp, bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        navigationItems.forEach { screen ->
+            val isSelected = remember(currentRoute, screen.route) {
+                isRouteSelected(currentRoute, screen.route, navigationItems)
+            }
+            FloatingRailItem(
+                screen = screen,
+                isSelected = isSelected,
+                onClick = { onItemClick(screen, isSelected) },
+                onSearchLongClick = onSearchLongClick,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatingRailItem(
+    screen: Screens,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onSearchLongClick: (() -> Unit)?,
+) {
+    val haptics = LocalHapticFeedback.current
+    val viewConfiguration = LocalViewConfiguration.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isSearchItem = screen == Screens.Search && onSearchLongClick != null
+
+    if (isSearchItem) {
+        LaunchedEffect(interactionSource) {
+            var isLongClick = false
+            interactionSource.interactions.collectLatest { interaction ->
+                when (interaction) {
+                    is PressInteraction.Press -> {
+                        isLongClick = false
+                        delay(viewConfiguration.longPressTimeoutMillis)
+                        isLongClick = true
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onSearchLongClick?.invoke()
+                    }
+                    is PressInteraction.Release -> {
+                        if (!isLongClick) {
+                            onClick()
+                        }
+                    }
+                    is PressInteraction.Cancel -> {
+                        isLongClick = false
+                    }
+                }
+            }
+        }
+    }
+
+    val iconRes = if (isSelected) screen.iconIdActive else screen.iconIdInactive
+    val contentColor = if (isSelected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
+        animationSpec = tween(durationMillis = 200)
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.05f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        )
+    )
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {
+                    if (!isSearchItem) {
+                        onClick()
+                    }
+                }
+            )
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(48.dp)
+                .graphicsLayer(scaleX = scale, scaleY = scale)
+                .clip(CircleShape)
+                .background(backgroundColor)
+                .indication(interactionSource, ripple(bounded = true))
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = stringResource(screen.titleId),
+            color = contentColor,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

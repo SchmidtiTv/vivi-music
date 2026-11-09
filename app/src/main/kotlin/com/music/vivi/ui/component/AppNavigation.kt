@@ -47,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import com.music.vivi.ui.screens.Screens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.foundation.layout.width
+import com.music.vivi.constants.NavigationRailWidth
 
 @Immutable
 private data class NavItemState(
@@ -71,6 +73,7 @@ fun AppNavigationRail(
     modifier: Modifier = Modifier,
     pureBlack: Boolean = false,
     onSearchLongClick: (() -> Unit)? = null,
+    floating: Boolean = false,
     footer: (@Composable () -> Unit)? = null,
 ) {
     val containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surface
@@ -78,14 +81,27 @@ fun AppNavigationRail(
     val viewConfiguration = LocalViewConfiguration.current
     
     androidx.compose.material3.Surface(
-        modifier = modifier,
+        // Fixed width so the page doesn't shift when switching between the two styles.
+        modifier = if (floating) modifier.width(NavigationRailWidth) else modifier,
         color = containerColor
     ) {
         Column(
             modifier = Modifier.fillMaxHeight(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-        WideNavigationRail(
+        if (floating) {
+            FloatingNavigationRail(
+                navigationItems = navigationItems,
+                currentRoute = currentRoute,
+                onItemClick = onItemClick,
+                pureBlack = pureBlack,
+                onSearchLongClick = onSearchLongClick,
+                modifier = Modifier
+                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Start))
+                    .padding(top = 12.dp),
+            )
+            Spacer(Modifier.weight(1f))
+        } else WideNavigationRail(
             modifier = Modifier.weight(1f),
             colors = WideNavigationRailDefaults.colors(containerColor = Color.Transparent),
             windowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Start),

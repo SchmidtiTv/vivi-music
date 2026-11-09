@@ -134,8 +134,8 @@ object AppleMusicV17PlayerTheme : StandalonePlayerTheme {
     override val nameRes = R.string.player_v2
 
     @Composable
-    override fun Content(state: BottomSheetState, navController: NavController, modifier: Modifier) {
-        AppleMusicV17Player(state, navController, modifier)
+    override fun Content(state: BottomSheetState, navController: NavController, modifier: Modifier, slideFromStart: Boolean) {
+        AppleMusicV17Player(state, navController, modifier, slideFromStart)
     }
 }
 
@@ -146,7 +146,8 @@ enum class PlayerInternalState { COVER, LYRICS, QUEUE }
 fun AppleMusicV17Player(
     state: BottomSheetState,
     navController: NavController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    slideFromStart: Boolean = false,
 ) {
     val context = LocalContext.current
 
@@ -553,7 +554,8 @@ fun AppleMusicV17Player(
             AppleMusicV17PlayerLandscape(
                 state = state,
                 navController = navController,
-                modifier = modifier
+                modifier = modifier,
+                slideFromStart = slideFromStart,
             )
         } else {
             if (playerBackground == PlayerBackgroundStyle.APPLE_MUSIC && blurOverlayAlpha > 0.001f) {
@@ -602,9 +604,12 @@ fun AppleMusicV17Player(
                     modifier = Modifier
                         .width(48.dp)
                         .height(6.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(adaptivePrimary.copy(alpha = 0.3f))
-                        .clickable { state.collapseSoft() }
+                        .then(
+                            if (slideFromStart) Modifier else Modifier
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(adaptivePrimary.copy(alpha = 0.3f))
+                                .clickable { state.collapseSoft() }
+                        )
                 )
             }
 
@@ -1566,9 +1571,44 @@ fun AppleMusicV17Player(
             }
         }
     }
+
+        if (!isLandscape && slideFromStart) {
+            AppleMusicV17DragHandle(
+                slideFromStart = true,
+                color = adaptivePrimary.copy(alpha = 0.3f),
+                onClick = state::collapseSoft,
+            )
+        }
         
         if (showAudioDeviceBottomSheet) {
             AudioDeviceBottomSheet(onDismiss = { showAudioDeviceBottomSheet = false })
         }
     }
+}
+
+@Composable
+internal fun BoxScope.AppleMusicV17DragHandle(
+    slideFromStart: Boolean,
+    color: Color,
+    onClick: () -> Unit,
+) {
+    val placement = if (slideFromStart) {
+        Modifier
+            .align(Alignment.CenterEnd)
+            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.End))
+            .padding(end = 8.dp)
+            .size(width = 6.dp, height = 48.dp)
+    } else {
+        Modifier
+            .align(Alignment.TopCenter)
+            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+            .padding(top = 8.dp)
+            .size(width = 48.dp, height = 6.dp)
+    }
+    Box(
+        modifier = placement
+            .clip(RoundedCornerShape(3.dp))
+            .background(color)
+            .clickable(onClick = onClick)
+    )
 }

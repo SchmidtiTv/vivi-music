@@ -34,7 +34,7 @@ interface PlayerTheme {
 /** Draws the whole expanded player itself instead of using the shared layout. */
 interface StandalonePlayerTheme : PlayerTheme {
     @Composable
-    fun Content(state: BottomSheetState, navController: NavController, modifier: Modifier)
+    fun Content(state: BottomSheetState, navController: NavController, modifier: Modifier, slideFromStart: Boolean)
 }
 
 /** Fills the design-specific slots of the shared layout in `BottomSheetPlayer`. */
@@ -114,6 +114,8 @@ class PlayerControlsArgs(
 )
 
 class PlayerQueueArgs(
+    /** Show only the queue list, beside the player, instead of a sheet with the queue bar. */
+    val docked: Boolean,
     val queueSheetState: BottomSheetState,
     val playerBottomSheetState: BottomSheetState,
     val navController: NavController,
