@@ -12,14 +12,12 @@ import androidx.window.core.layout.WindowSizeClass.Companion.WIDTH_DP_MEDIUM_LOW
 @Immutable
 data class AdaptiveLayout(
     val useNavRail: Boolean,
-    // Landscape phones are too short to fit the vertical mini player under the rail items.
     val miniPlayerInRail: Boolean,
     val constrainMiniPlayer: Boolean,
     val playerSideBySide: Boolean,
-    // Tablets only: landscape phones are too short to stack the cover, controls and queue bar.
     val playerQueueBeside: Boolean,
-    // Detail pages (e.g. artist) show their header in a side pane next to the content.
     val twoPaneDetails: Boolean,
+    val narrowSheets: Boolean,
 )
 
 val LocalAdaptiveLayout = staticCompositionLocalOf<AdaptiveLayout> {
@@ -40,6 +38,7 @@ fun rememberAdaptiveLayout(): AdaptiveLayout {
             playerSideBySide = expandedWidth || compactHeight,
             playerQueueBeside = expandedWidth && !compactHeight,
             twoPaneDetails = expandedWidth && !compactHeight,
+            narrowSheets = expandedWidth && !compactHeight,
         )
     }
 }
