@@ -39,6 +39,9 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.music.vivi.ui.utils.LocalAdaptiveLayout
+
+private val TabletSheetMaxWidth = 480.dp
 
 val LocalMenuState = compositionLocalOf { MenuState() }
 
@@ -67,7 +70,7 @@ fun AnimatedBottomSheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false),
-    sheetMaxWidth: Dp = BottomSheetDefaults.SheetMaxWidth,
+    sheetMaxWidth: Dp = if (LocalAdaptiveLayout.current.narrowSheets) TabletSheetMaxWidth else BottomSheetDefaults.SheetMaxWidth,
     shape: Shape = BottomSheetDefaults.ExpandedShape,
     containerColor: Color = BottomSheetDefaults.ContainerColor,
     contentColor: Color = contentColorFor(containerColor),

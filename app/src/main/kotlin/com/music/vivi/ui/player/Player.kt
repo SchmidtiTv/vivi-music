@@ -37,7 +37,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -67,18 +66,15 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.produceState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -101,14 +97,13 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
@@ -121,7 +116,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -130,8 +124,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
-import dev.chrisbanes.haze.HazeState
-import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.media3.common.C
@@ -175,11 +167,9 @@ import com.music.vivi.constants.ShowAudioQualityBadgeKey
 import com.music.vivi.db.entities.LyricsEntity
 import com.music.vivi.extensions.SwipeGesture
 import com.music.vivi.extensions.togglePlayPause
-import com.music.vivi.extensions.toggleRepeatMode
 import com.music.vivi.listentogether.RoomRole
 import com.music.vivi.models.MediaMetadata
 import com.music.vivi.vivimusic.getConnectedBluetoothDeviceName
-import com.music.vivi.vivimusic.AudioDeviceBottomSheet
 import com.music.vivi.ui.component.BottomSheet
 import com.music.vivi.ui.component.BottomSheetState
 import com.music.vivi.ui.component.LocalBottomSheetPageState
@@ -189,7 +179,6 @@ import com.music.vivi.ui.component.PlayerSliderTrack
 import com.music.vivi.ui.component.SquigglySlider
 import com.music.vivi.ui.component.WavySlider
 import com.music.vivi.ui.component.rememberBottomSheetState
-import com.music.vivi.ui.menu.PlayerMenu
 import com.music.vivi.ui.player.fullscreen.PlayerActionsArgs
 import com.music.vivi.ui.player.fullscreen.PlayerControlsArgs
 import com.music.vivi.ui.player.fullscreen.PlayerQueueArgs
@@ -198,12 +187,10 @@ import com.music.vivi.ui.player.fullscreen.PlayerTimeBadgeArgs
 import com.music.vivi.ui.player.fullscreen.SlotPlayerTheme
 import com.music.vivi.ui.player.fullscreen.StandalonePlayerTheme
 import com.music.vivi.ui.player.fullscreen.rememberPlayerTheme
-import com.music.vivi.ui.component.VolumeSlider
 import com.music.vivi.ui.screens.settings.DarkMode
 import com.music.vivi.ui.theme.PlayerColorExtractor
 import com.music.vivi.ui.theme.PlayerSliderColors
 import com.music.vivi.ui.utils.LocalAdaptiveLayout
-import com.music.vivi.ui.utils.ShowMediaInfo
 import com.music.vivi.utils.makeTimeString
 import com.music.vivi.utils.rememberEnumPreference
 import com.music.vivi.utils.rememberPreference
@@ -230,7 +217,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
 import coil3.request.crossfade
 import com.music.vivi.Motionartwork.apple.AppleMusicMotionartworkProvider
 import com.music.vivi.Motionartwork.Motionartwork
@@ -243,11 +229,11 @@ import com.music.vivi.constants.SpotifyCanvasEnabledKey
 import com.music.spotify.Spotify
 import com.music.spotify.SpotifyCanvasProvider
 import com.music.vivi.constants.CanvasLoadOnlyWifiKey
-import com.music.vivi.extensions.metadata
 import com.music.vivi.ui.player.MotionartworkPlaybackCache
 import com.music.vivi.utils.isWifiConnected
 import com.music.vivi.utils.SpotifySessionManager
 import java.util.Locale
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BottomSheetPlayer(
@@ -260,12 +246,12 @@ fun BottomSheetPlayer(
     slideFromStart: Boolean = false,
 ) {
     val context = LocalContext.current
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val database = LocalDatabase.current
     val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     val menuState = LocalMenuState.current
     val bottomSheetPageState = LocalBottomSheetPageState.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val playerHazeState = remember { HazeState() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -306,13 +292,6 @@ fun BottomSheetPlayer(
     val (motionartworkSource) = rememberEnumPreference(MotionartworkSourceKey, defaultValue = MotionartworkSource.AUTO)
     val canvasLoadOnlyWifi by rememberPreference(CanvasLoadOnlyWifiKey, defaultValue = false)
     val spotifyCanvasEnabled by rememberPreference(SpotifyCanvasEnabledKey, false)
-
-    val shouldUseDarkButtonColors = remember(playerBackground, useDarkTheme) {
-        when (playerBackground) {
-            PlayerBackgroundStyle.BLUR, PlayerBackgroundStyle.GRADIENT, PlayerBackgroundStyle.GLOW_ANIMATED, PlayerBackgroundStyle.APPLE_MUSIC, PlayerBackgroundStyle.LIVE_MESH -> true
-            PlayerBackgroundStyle.DEFAULT -> useDarkTheme
-        }
-    }
 
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val swipeLyrics by rememberPreference(SwipeLyricsKey, false)
@@ -372,8 +351,6 @@ fun BottomSheetPlayer(
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
     val isMuted by playerConnection.isMuted.collectAsState()
-    val playerVolume by playerConnection.service.playerVolume.collectAsState()
-
     val (audioQuality) = rememberEnumPreference(
         AudioQualityKey,
         defaultValue = AudioQuality.AUTO
@@ -492,7 +469,6 @@ fun BottomSheetPlayer(
         }
     }
 
-    val defaultGradientColors = listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant)
     val fallbackColor = MaterialTheme.colorScheme.surface.toArgb()
 
     LaunchedEffect(mediaMetadata?.id, playerBackground) {
@@ -616,18 +592,6 @@ fun BottomSheetPlayer(
             PlayerBackgroundStyle.LIVE_MESH -> Color.White
         },
         label = "TextBackgroundColor"
-    )
-
-    val icBackgroundColor by animateColorAsState(
-        targetValue = when (playerBackground) {
-            PlayerBackgroundStyle.DEFAULT -> MaterialTheme.colorScheme.surface
-            PlayerBackgroundStyle.BLUR -> Color.Black
-            PlayerBackgroundStyle.GRADIENT -> Color.Black
-            PlayerBackgroundStyle.GLOW_ANIMATED -> Color.Black
-            PlayerBackgroundStyle.APPLE_MUSIC -> Color.Black
-            PlayerBackgroundStyle.LIVE_MESH -> Color.Black
-        },
-        label = "icBackgroundColor"
     )
 
     val albumTitle = mediaMetadata?.album?.title
@@ -889,10 +853,6 @@ fun BottomSheetPlayer(
         }
     }
 
-    var showChoosePlaylistDialog by rememberSaveable {
-        mutableStateOf(false)
-    }
-
     var showInlineLyrics by rememberSaveable {
         mutableStateOf(false)
     }
@@ -958,7 +918,6 @@ fun BottomSheetPlayer(
 
     val backgroundAlpha = state.progress.coerceIn(0f, 1f)
 
-    // Pull-down-to-collapse is vertical only, so it's off when the sheet slides in from the side.
     val sheetNestedScroll = if (slideFromStart) {
         Modifier
     } else {
@@ -986,8 +945,6 @@ fun BottomSheetPlayer(
                         label = "spotifyCanvasBackground"
                     ) { url ->
                         if (url != null) {
-                            // The canvas is a portrait video; across a whole landscape tablet it would be
-                            // cropped to a thin strip, so there it only fills the controls half.
                             val canvasOnStartHalf = LocalAdaptiveLayout.current.playerQueueBeside
                             val dimmer: @Composable () -> Unit = {
                                 Box(
@@ -998,9 +955,7 @@ fun BottomSheetPlayer(
                             }
                             Box(modifier = Modifier.fillMaxSize().alpha(backgroundAlpha)) {
                                 if (backgroundAlpha > 0.01f) {
-                                    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
                                     if (canvasOnStartHalf) {
-                                        // Blurred cover fills the queue/lyrics half and shows through the canvas fade.
                                         AsyncImage(
                                             model = ImageRequest.Builder(context)
                                                 .data(mediaMetadata?.thumbnailUrl)
@@ -1014,7 +969,6 @@ fun BottomSheetPlayer(
                                                 .fillMaxSize()
                                                 .blur(120.dp)
                                         )
-                                        // Only the blurred side is dimmed; lyrics and the queue sit there, not on the video.
                                         dimmer()
                                     }
                                     BackgroundVideoView(
@@ -1028,22 +982,7 @@ fun BottomSheetPlayer(
                                                 .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                                                 .drawWithContent {
                                                     drawContent()
-                                                    val stops = arrayOf(
-                                                        0.00f to Color.Black,
-                                                        0.75f to Color.Black,
-                                                        0.92f to Color.Black.copy(alpha = 0.4f),
-                                                        1.00f to Color.Transparent,
-                                                    )
-                                                    drawRect(
-                                                        brush = Brush.horizontalGradient(
-                                                            colorStops = if (isRtl) {
-                                                                stops.reversedArray().map { (f, c) -> 1f - f to c }.toTypedArray()
-                                                            } else {
-                                                                stops
-                                                            }
-                                                        ),
-                                                        blendMode = BlendMode.DstIn
-                                                    )
+                                                    fadeOutEndEdge(isRtl)
                                                 }
                                         } else {
                                             Modifier.fillMaxSize()
@@ -1323,7 +1262,6 @@ fun BottomSheetPlayer(
                                     )
 
                                     // Layer 2: Clear Artwork (Dissolves along smootherStep into backdrop)
-                                    // On tablets it covers only the left half; the queue or lyrics side stays blurred.
                                     val artworkOnLeftHalf = LocalAdaptiveLayout.current.playerQueueBeside
                                     val clearArtworkAlpha by animateFloatAsState(
                                         targetValue = if (showInlineLyrics && !artworkOnLeftHalf) 0f else 1f,
@@ -1351,20 +1289,7 @@ fun BottomSheetPlayer(
                                                     ),
                                                     blendMode = BlendMode.DstIn
                                                 )
-                                                // Same blend on the right edge when the artwork stops halfway across
-                                                if (artworkOnLeftHalf) {
-                                                    drawRect(
-                                                        brush = Brush.horizontalGradient(
-                                                            colorStops = arrayOf(
-                                                                0.00f to Color.Black,
-                                                                0.75f to Color.Black,
-                                                                0.92f to Color.Black.copy(alpha = 0.4f),
-                                                                1.00f to Color.Transparent,
-                                                            )
-                                                        ),
-                                                        blendMode = BlendMode.DstIn
-                                                    )
-                                                }
+                                                if (artworkOnLeftHalf) fadeOutEndEdge(isRtl)
                                             }
                                     ) {
                                         AsyncImage(
@@ -2008,7 +1933,6 @@ fun BottomSheetPlayer(
                         }
 
                         AnimatedVisibility(visible = !isFullScreen) {
-                            // Same height as the collapsed queue sheet, which is what sizes the bar's buttons.
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -2031,9 +1955,6 @@ fun BottomSheetPlayer(
                         }
                     }
 
-                    // Lyrics or the queue; the queue bar's lyrics and queue buttons switch between them.
-                    // The queue stays composed and only fades, so switching back doesn't rebuild the
-                    // whole list. Lyrics follow playback, so they are composed only while visible.
                     val lyricsAlpha by animateFloatAsState(
                         targetValue = if (showInlineLyrics) 1f else 0f,
                         label = "lyricsAlpha"
@@ -2043,7 +1964,6 @@ fun BottomSheetPlayer(
                             .weight(1f)
                             .fillMaxHeight()
                     ) {
-                        // The window insets are already applied by the Row; don't add them again inside the queue.
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -2057,7 +1977,6 @@ fun BottomSheetPlayer(
                         }
 
                         if (showInlineLyrics || lyricsAlpha > 0f) {
-                            // Keeps taps away from the hidden queue underneath.
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -2293,91 +2212,22 @@ fun InlineLyricsView(
     }
 }
 
+private val EndEdgeFadeStops = arrayOf(
+    0.00f to Color.Black,
+    0.75f to Color.Black,
+    0.92f to Color.Black.copy(alpha = 0.4f),
+    1.00f to Color.Transparent,
+)
 
-@Composable
-fun MoreActionsButton(
-    mediaMetadata: MediaMetadata,
-    navController: NavController,
-    state: BottomSheetState,
-    textButtonColor: Color,
-    iconButtonColor: Color
-) {
-    val menuState = LocalMenuState.current
-    val bottomSheetPageState = LocalBottomSheetPageState.current
-
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(textButtonColor)
-            .clickable {
-                menuState.show {
-                    PlayerMenu(
-                        mediaMetadata = mediaMetadata,
-                        navController = navController,
-                        playerBottomSheetState = state,
-                        onShowDetailsDialog = {
-                            mediaMetadata.id.let {
-                                bottomSheetPageState.show {
-                                    ShowMediaInfo(it)
-                                }
-                            }
-                        },
-                        onDismiss = menuState::dismiss
-                    )
-                }
-            }
-    ) {
-        Image(
-            painter = painterResource(R.drawable.more_vert),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(iconButtonColor)
-        )
-    }
-}
-
-@Composable
-private fun PlayerMoreMenuButton(
-    mediaMetadata: MediaMetadata,
-    navController: NavController,
-    state: BottomSheetState,
-    textButtonColor: Color,
-    iconButtonColor: Color,
-) {
-    val menuState = LocalMenuState.current
-    val bottomSheetPageState = LocalBottomSheetPageState.current
-
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier =
-        Modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(textButtonColor)
-            .clickable {
-                menuState.show {
-                    PlayerMenu(
-                        mediaMetadata = mediaMetadata,
-                        navController = navController,
-                        playerBottomSheetState = state,
-                        onShowDetailsDialog = {
-                            mediaMetadata.id.let {
-                                bottomSheetPageState.show {
-                                    ShowMediaInfo(it)
-                                }
-                            }
-                        },
-                        onDismiss = menuState::dismiss,
-                    )
-                }
-            },
-    ) {
-        Image(
-            painter = painterResource(R.drawable.more_horiz),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(iconButtonColor),
-        )
-    }
+private fun DrawScope.fadeOutEndEdge(isRtl: Boolean) {
+    drawRect(
+        brush = Brush.horizontalGradient(
+            *EndEdgeFadeStops,
+            startX = if (isRtl) size.width else 0f,
+            endX = if (isRtl) 0f else size.width,
+        ),
+        blendMode = BlendMode.DstIn,
+    )
 }
 
 private fun smootherStep(t: Float): Float {

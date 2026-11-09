@@ -51,8 +51,6 @@ fun MotionartworkPlayer(
     val initial = primary ?: fallback ?: return
     var currentUrl by remember(initial) { mutableStateOf(initial) }
     var isVideoReady by remember(initial) { mutableStateOf(false) }
-    // AspectRatioFrameLayout can only fit the video once it knows its shape; without it the
-    // video is stretched to fill the view.
     var videoAspectRatio by remember { mutableFloatStateOf(0f) }
 
     val okHttpClient =

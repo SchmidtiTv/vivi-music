@@ -67,13 +67,11 @@ val SquigglySliderKey = booleanPreferencesKey("squigglySlider")
 val SwipeToSongKey = booleanPreferencesKey("SwipeToSong")
 val SwipeToRemoveSongKey = booleanPreferencesKey("SwipeToRemoveSong")
 val PlayerThemeKey = stringPreferencesKey("playerTheme")
-// Replaced by PlayerThemeKey; only read once to migrate old settings.
 val UseNewPlayerDesignKey= booleanPreferencesKey("useNewPlayerDesign")
 val UsePlayerV2Key = booleanPreferencesKey("usePlayerV2")
 val UseExpressiveAlbumDesignKey = booleanPreferencesKey("useExpressiveAlbumDesign")
 val ExpressiveSongAlbumImageKey = booleanPreferencesKey("expressiveSongAlbumImage")
 val MiniPlayerThemeKey = stringPreferencesKey("miniPlayerTheme")
-// Replaced by MiniPlayerThemeKey; only read once to migrate old settings.
 val UseNewMiniPlayerDesignKey = booleanPreferencesKey("useNewMiniPlayerDesign")
 val UseAppleMiniPlayerKey = booleanPreferencesKey("useAppleMiniPlayer")
 val MiniPlayerInRailKey = booleanPreferencesKey("miniPlayerInRail")

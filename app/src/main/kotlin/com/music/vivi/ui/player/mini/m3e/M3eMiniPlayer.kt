@@ -224,7 +224,6 @@ private fun M3eMiniPlayer(
             MiniPlayerLayout(
                 vertical = vertical,
                 contentPadding = PaddingValues(8.dp),
-                // Centers the 48dp play button and 40dp favorite button in the pill's round ends.
                 railContentPadding = PaddingValues(
                     start = 8.dp,
                     end = 8.dp,

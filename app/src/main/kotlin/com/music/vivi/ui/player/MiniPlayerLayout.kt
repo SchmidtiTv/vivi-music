@@ -20,11 +20,6 @@ import com.music.vivi.R
 
 val RailMiniPlayerWidth = 80.dp
 
-/**
- * Positions a mini player's parts for every design: in a row for the bottom bar, or stacked and
- * centered for the navigation rail. [actions] is emitted straight into that row/column, so separate
- * its items with `Spacer(Modifier.size(..))` to work in both orientations.
- */
 @Composable
 internal fun MiniPlayerLayout(
     vertical: Boolean,

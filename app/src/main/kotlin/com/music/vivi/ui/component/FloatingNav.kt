@@ -140,10 +140,6 @@ fun FloatingNavigationBar(
     }
 }
 
-/**
- * [FloatingNavigationBar]'s look for the navigation rail: all screens in one upright pill, each with
- * a round icon background and its name underneath.
- */
 @Composable
 fun FloatingNavigationRail(
     navigationItems: List<Screens>,

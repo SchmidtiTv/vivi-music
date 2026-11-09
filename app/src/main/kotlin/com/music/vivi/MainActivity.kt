@@ -801,7 +801,6 @@ class MainActivity : ComponentActivity() {
                     label = "snackbarHeight"
                 )
 
-                // When the mini player lives in the rail, the collapsed sheet is hidden.
                 val playerBottomSheetState = rememberBottomSheetState(
                     dismissedBound = 0.dp,
                     collapsedBound = if (miniPlayerInRail) 0.dp else bottomInset +

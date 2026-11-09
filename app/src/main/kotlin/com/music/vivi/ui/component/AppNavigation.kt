@@ -7,48 +7,48 @@ package com.music.vivi.ui.component
 
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.WideNavigationRailDefaults
-import androidx.compose.ui.Alignment
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.WideNavigationRail
-import androidx.compose.material3.WideNavigationRailItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.WideNavigationRail
+import androidx.compose.material3.WideNavigationRailDefaults
+import androidx.compose.material3.WideNavigationRailItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.Stable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import com.music.vivi.constants.NavigationRailWidth
 import com.music.vivi.ui.screens.Screens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
-import androidx.compose.foundation.layout.width
-import com.music.vivi.constants.NavigationRailWidth
 
 @Immutable
 private data class NavItemState(
@@ -81,7 +81,6 @@ fun AppNavigationRail(
     val viewConfiguration = LocalViewConfiguration.current
     
     androidx.compose.material3.Surface(
-        // Fixed width so the page doesn't shift when switching between the two styles.
         modifier = if (floating) modifier.width(NavigationRailWidth) else modifier,
         color = containerColor
     ) {
@@ -89,97 +88,97 @@ fun AppNavigationRail(
             modifier = Modifier.fillMaxHeight(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-        if (floating) {
-            FloatingNavigationRail(
-                navigationItems = navigationItems,
-                currentRoute = currentRoute,
-                onItemClick = onItemClick,
-                pureBlack = pureBlack,
-                onSearchLongClick = onSearchLongClick,
-                modifier = Modifier
-                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Start))
-                    .padding(top = 12.dp),
-            )
-            Spacer(Modifier.weight(1f))
-        } else WideNavigationRail(
-            modifier = Modifier.weight(1f),
-            colors = WideNavigationRailDefaults.colors(containerColor = Color.Transparent),
-            windowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Start),
-        ) {
-        
-        navigationItems.forEach { screen ->
-            val isSelected = remember(currentRoute, screen.route) {
-                isRouteSelected(currentRoute, screen.route, navigationItems)
-            }
-            val iconRes = remember(isSelected, screen) {
-                if (isSelected) screen.iconIdActive else screen.iconIdInactive
-            }
-            
-            val isSearchItem = screen == Screens.Search && onSearchLongClick != null
-            val interactionSource = remember { MutableInteractionSource() }
-            
-            // Long press detection using InteractionSource
-            if (isSearchItem) {
-                LaunchedEffect(interactionSource) {
-                    var isLongClick = false
-                    interactionSource.interactions.collectLatest { interaction ->
-                        when (interaction) {
-                            is PressInteraction.Press -> {
-                                isLongClick = false
-                                delay(viewConfiguration.longPressTimeoutMillis)
-                                isLongClick = true
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onSearchLongClick.invoke()
-                            }
-                            is PressInteraction.Release -> {
-                                if (!isLongClick) {
-                                    onItemClick(screen, isSelected)
+            if (floating) {
+                FloatingNavigationRail(
+                    navigationItems = navigationItems,
+                    currentRoute = currentRoute,
+                    onItemClick = onItemClick,
+                    pureBlack = pureBlack,
+                    onSearchLongClick = onSearchLongClick,
+                    modifier = Modifier
+                        .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Start))
+                        .padding(top = 12.dp),
+                )
+                Spacer(Modifier.weight(1f))
+            } else WideNavigationRail(
+                modifier = Modifier.weight(1f),
+                colors = WideNavigationRailDefaults.colors(containerColor = Color.Transparent),
+                windowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Start),
+            ) {
+                
+                navigationItems.forEach { screen ->
+                    val isSelected = remember(currentRoute, screen.route) {
+                        isRouteSelected(currentRoute, screen.route, navigationItems)
+                    }
+                    val iconRes = remember(isSelected, screen) {
+                        if (isSelected) screen.iconIdActive else screen.iconIdInactive
+                    }
+                    
+                    val isSearchItem = screen == Screens.Search && onSearchLongClick != null
+                    val interactionSource = remember { MutableInteractionSource() }
+                    
+                    // Long press detection using InteractionSource
+                    if (isSearchItem) {
+                        LaunchedEffect(interactionSource) {
+                            var isLongClick = false
+                            interactionSource.interactions.collectLatest { interaction ->
+                                when (interaction) {
+                                    is PressInteraction.Press -> {
+                                        isLongClick = false
+                                        delay(viewConfiguration.longPressTimeoutMillis)
+                                        isLongClick = true
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onSearchLongClick.invoke()
+                                    }
+                                    is PressInteraction.Release -> {
+                                        if (!isLongClick) {
+                                            onItemClick(screen, isSelected)
+                                        }
+                                    }
+                                    is PressInteraction.Cancel -> {
+                                        isLongClick = false
+                                    }
                                 }
-                            }
-                            is PressInteraction.Cancel -> {
-                                isLongClick = false
                             }
                         }
                     }
+                    
+                    WideNavigationRailItem(
+                        railExpanded = false,
+                        selected = isSelected,
+                        onClick = { 
+                            if (!isSearchItem) {
+                                onItemClick(screen, isSelected)
+                            }
+                            // For search item, click is handled via InteractionSource
+                        },
+                        interactionSource = interactionSource,
+                        icon = {
+                            Icon(
+                                painter = painterResource(id = iconRes),
+                                contentDescription = stringResource(screen.titleId)
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = stringResource(screen.titleId),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    )
+                }
+                
+            }
+            footer?.let {
+                Box(
+                    Modifier
+                        .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
+                        .padding(bottom = 16.dp)
+                ) {
+                    it()
                 }
             }
-            
-            WideNavigationRailItem(
-                railExpanded = false,
-                selected = isSelected,
-                onClick = { 
-                    if (!isSearchItem) {
-                        onItemClick(screen, isSelected)
-                    }
-                    // For search item, click is handled via InteractionSource
-                },
-                interactionSource = interactionSource,
-                icon = {
-                    Icon(
-                        painter = painterResource(id = iconRes),
-                        contentDescription = stringResource(screen.titleId)
-                    )
-                },
-                label = {
-                    Text(
-                        text = stringResource(screen.titleId),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            )
-        }
-        
-        }
-        footer?.let {
-            Box(
-                Modifier
-                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start))
-                    .padding(bottom = 16.dp)
-            ) {
-                it()
-            }
-        }
         }
     }
 }

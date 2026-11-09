@@ -254,7 +254,6 @@ fun AlbumScreen(
 
     val twoPane = LocalAdaptiveLayout.current.twoPaneDetails
 
-    // Cover, title, info and buttons: the first list item on phones, a side pane on tablets.
     val header: @Composable (albumWithSongs: AlbumWithSongs, pane: Boolean) -> Unit = { albumWithSongs, pane ->
         val systemBarsTopPadding = WindowInsets.systemBars.asPaddingValues().calculateTopPadding()
         val density = LocalDensity.current

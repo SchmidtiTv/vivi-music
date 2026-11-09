@@ -61,12 +61,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import com.music.vivi.ui.component.BottomSheetState
+import com.music.vivi.ui.component.detectSheetSlideFromStart
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -95,13 +94,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 import com.music.vivi.ui.component.Icon as MIcon
 import com.music.vivi.ui.player.mini.rememberMiniPlayerTheme
 
@@ -143,9 +136,6 @@ fun MiniPlayer(
 }
 
 
-/**
- * The user's chosen mini player design, stacked vertically for the bottom of the navigation rail.
- */
 @Composable
 fun RailMiniPlayer(
     positionState: MutableLongState,
@@ -159,7 +149,6 @@ fun RailMiniPlayer(
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     if (mediaMetadata == null) return
 
-    // Same swipe-to-skip as the horizontal mini player, turned 90°: up = next, down = previous.
     val swipeSensitivity by rememberPreference(SwipeSensitivityKey, 0.73f)
     val swipeThumbnailPref by rememberPreference(SwipeThumbnailKey, true)
     val listenTogetherManager = LocalListenTogetherManager.current
@@ -230,28 +219,9 @@ fun RailMiniPlayer(
         )
     }
 
-    // Dragging toward the content pulls the player sheet out of the rail, mirroring the sheet's own
-    // slide-from-start gesture so the drag can be continued or reversed seamlessly.
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val openModifier = Modifier.pointerInput(sheetState, sheetWidth, isRtl) {
-        val velocityTracker = VelocityTracker()
-        val scale = sheetState.expandedBound.toPx() / sheetWidth.toPx()
-        val direction = if (isRtl) 1f else -1f
-        detectHorizontalDragGestures(
-            onHorizontalDrag = { change, dragAmount ->
-                velocityTracker.addPointerInputChange(change)
-                sheetState.dispatchRawDelta(dragAmount * scale * direction)
-            },
-            onDragCancel = {
-                velocityTracker.resetTracking()
-                sheetState.collapseSoft()
-            },
-            onDragEnd = {
-                val velocity = -velocityTracker.calculateVelocity().x * scale * direction
-                velocityTracker.resetTracking()
-                sheetState.performFling(velocity, null)
-            },
-        )
+        detectSheetSlideFromStart(sheetState, sheetWidth.toPx(), isRtl)
     }
 
     MiniPlayer(

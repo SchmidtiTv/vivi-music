@@ -207,7 +207,6 @@ fun ArtistScreen(
 
     val twoPane = LocalAdaptiveLayout.current.twoPaneDetails
 
-    // Photo, name, stats, about and buttons: the first list item on phones, a side pane on tablets.
     val header: @Composable (pane: Boolean) -> Unit = { pane ->
         val thumbnail = artistPage?.artist?.thumbnail ?: libraryArtist?.artist?.thumbnailUrl
         val artistName = artistPage?.artist?.title ?: libraryArtist?.artist?.name
@@ -250,8 +249,6 @@ fun ArtistScreen(
                     ) {
                         if (thumbnail != null) {
                             AsyncImage(
-                                // Request the header's own size: a square image gets
-                                // blown up and blurry on wide screens such as tablets.
                                 model = if (pane) {
                                 thumbnail.resize(1200, 1200)
                             } else {

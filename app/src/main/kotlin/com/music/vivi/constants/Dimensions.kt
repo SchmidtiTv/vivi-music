@@ -19,7 +19,6 @@ const val CONTENT_TYPE_PLAYLIST = 5
 
 val NavigationBarHeight = 80.dp
 val SlimNavBarHeight = 64.dp
-// Collapsed WideNavigationRail width (Material 3 token).
 val NavigationRailWidth = 96.dp
 val MiniPlayerHeight = 64.dp
 val MinMiniPlayerHeight = 16.dp

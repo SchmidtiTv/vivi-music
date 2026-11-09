@@ -104,25 +104,6 @@ fun ColumnScope.ApplePlayerControls(
                 .fillMaxWidth()
                 .padding(horizontal = PlayerHorizontalPadding),
     ) {
-        //    Box(modifier = Modifier.weight(1f)) {
-        //        ResizableIconButton(
-        //            icon = when (repeatMode) {
-        //                Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ALL -> R.drawable.repeat
-        //                Player.REPEAT_MODE_ONE -> R.drawable.repeat_one
-        //                else -> throw IllegalStateException()
-        //            },
-        //            color = textColor,
-        //            modifier = Modifier
-        //                .size(32.dp)
-        //                .padding(4.dp)
-        //                .align(Alignment.Center)
-        //                .alpha(if (isListenTogetherGuest) 0.5f else 1f),
-        //            enabled = !isListenTogetherGuest,
-        //            onClick = {
-        //                playerConnection.player.toggleRepeatMode()
-        //            }
-        //        )
-        //    }
 
         Box(modifier = Modifier.weight(1f)) {
             ResizableIconButton(
@@ -204,18 +185,6 @@ fun ColumnScope.ApplePlayerControls(
             )
         }
 
-        //    Box(modifier = Modifier.weight(1f)) {
-        //        ResizableIconButton(
-        //            icon = if (currentSong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border,
-        //            color = if (currentSong?.song?.liked == true) MaterialTheme.colorScheme.error else textColor,
-        //            modifier =
-        //            Modifier
-        //                .size(32.dp)
-        //                .padding(4.dp)
-        //                .align(Alignment.Center),
-        //            onClick = playerConnection::toggleLike,
-        //        )
-        //    }
     }
 
     Spacer(modifier = Modifier.height(8.dp)) //space between play and audio

@@ -22,48 +22,38 @@ import com.music.vivi.playback.CastConnectionHandler
 import com.music.vivi.playback.PlayerConnection
 import com.music.vivi.ui.component.BottomSheetState
 
-/** A full-screen player design. Every theme must be listed in [PlayerThemeRegistry]. */
 interface PlayerTheme {
-    /** Saved in settings, so it must never change once released. */
     val id: String
 
     @get:StringRes
     val nameRes: Int
 }
 
-/** Draws the whole expanded player itself instead of using the shared layout. */
 interface StandalonePlayerTheme : PlayerTheme {
     @Composable
     fun Content(state: BottomSheetState, navController: NavController, modifier: Modifier, slideFromStart: Boolean)
 }
 
-/** Fills the design-specific slots of the shared layout in `BottomSheetPlayer`. */
 interface SlotPlayerTheme : PlayerTheme {
     val controlsSpacing: Dp
     val bottomSpacing: Dp
     val solidSliderTrack: Boolean
     val growSliderWhileDragging: Boolean
 
-    /** Whether [TimeBadge] draws anything; also controls the badge setting's visibility. */
     val hasTimeBadge: Boolean
 
-    /** Buttons at the end of the title row. */
     @Composable
     fun Actions(args: PlayerActionsArgs)
 
-    /** Shown between the position and duration labels under the seek bar. */
     @Composable
     fun TimeBadge(args: PlayerTimeBadgeArgs)
 
-    /** Playback buttons and anything below them. */
     @Composable
     fun ColumnScope.Controls(args: PlayerControlsArgs)
 
-    /** The bar at the bottom of the player while the queue is collapsed. */
     @Composable
     fun QueueBar(args: PlayerQueueBarArgs)
 
-    /** The queue sheet over the player; [PlayerQueue] is the shared implementation. */
     @Composable
     fun Queue(args: PlayerQueueArgs)
 }
@@ -114,7 +104,6 @@ class PlayerControlsArgs(
 )
 
 class PlayerQueueArgs(
-    /** Show only the queue list, beside the player, instead of a sheet with the queue bar. */
     val docked: Boolean,
     val queueSheetState: BottomSheetState,
     val playerBottomSheetState: BottomSheetState,

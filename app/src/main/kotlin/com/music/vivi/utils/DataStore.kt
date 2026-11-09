@@ -109,6 +109,29 @@ fun <T> rememberPreference(
 }
 
 @Composable
+fun <T> rememberMappedPreference(
+    key: Preferences.Key<String>,
+    defaultValue: T,
+    fromKey: (String) -> T,
+    toKey: (T) -> String,
+): MutableState<T> {
+    val keyState = rememberPreference(key, toKey(defaultValue))
+    return remember(keyState) {
+        object : MutableState<T> {
+            override var value: T
+                get() = fromKey(keyState.value)
+                set(value) {
+                    keyState.value = toKey(value)
+                }
+
+            override fun component1() = value
+
+            override fun component2(): (T) -> Unit = { value = it }
+        }
+    }
+}
+
+@Composable
 inline fun <reified T : Enum<T>> rememberEnumPreference(
     key: Preferences.Key<String>,
     defaultValue: T,

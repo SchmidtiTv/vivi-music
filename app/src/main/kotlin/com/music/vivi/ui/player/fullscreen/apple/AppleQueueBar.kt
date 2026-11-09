@@ -73,15 +73,6 @@ fun AppleQueueBar(
                     modifier = Modifier.size(40.dp),
                     tint = textColor
                 )
-                //            Spacer(modifier = Modifier.width(6.dp))
-                //            Text(
-                //                text = stringResource(id = R.string.queue),
-                //                color = textColor,
-                //                maxLines = 1,
-                //                overflow = TextOverflow.Ellipsis,
-                //                textAlign = TextAlign.Center,
-                //                modifier = Modifier.basicMarquee()
-                //            )
             }
         }
 
@@ -174,15 +165,6 @@ fun AppleQueueBar(
                     modifier = Modifier.size(40.dp),
                     tint = textColor
                 )
-                //            Spacer(modifier = Modifier.width(6.dp))
-                //            Text(
-                //                text = stringResource(R.string.lyrics),
-                //                color = textColor,
-                //                maxLines = 1,
-                //                overflow = TextOverflow.Ellipsis,
-                //                textAlign = TextAlign.Center,
-                //                modifier = Modifier.basicMarquee()
-                //            )
             }
         }
     }

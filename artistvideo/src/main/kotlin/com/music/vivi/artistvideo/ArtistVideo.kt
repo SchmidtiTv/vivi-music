@@ -51,8 +51,6 @@ fun ArtistVideo(
 ) {
     val context = LocalContext.current
     var isVideoReady by remember(videoUrl) { mutableStateOf(false) }
-    // AspectRatioFrameLayout can only zoom/fit once it knows the video's shape; without it the
-    // video is stretched to fill the view.
     var videoAspectRatio by remember(videoUrl) { mutableFloatStateOf(0f) }
 
     val okHttpClient = remember { OkHttpClient.Builder().build() }

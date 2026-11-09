@@ -39,6 +39,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
@@ -65,7 +66,6 @@ fun BottomSheet(
     onDismiss: (() -> Unit)? = null,
     collapsedContent: @Composable BoxScope.() -> Unit,
     isExpandable: Boolean = true,
-    // Slides in from the start edge instead of the bottom (e.g. when opened from the navigation rail).
     slideFromStart: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -96,30 +96,12 @@ fun BottomSheet(
             }
             .pointerInput(state, isExpandable, slideFromStart, isRtl) {
                 if (!isExpandable) return@pointerInput
-                val velocityTracker = VelocityTracker()
-
                 if (slideFromStart) {
-                    // Map horizontal drag onto the sheet's vertical value range; dragging toward the start closes it.
-                    val scale = state.expandedBound.toPx() / size.width
-                    val direction = if (isRtl) 1f else -1f
-                    detectHorizontalDragGestures(
-                        onHorizontalDrag = { change, dragAmount ->
-                            velocityTracker.addPointerInputChange(change)
-                            state.dispatchRawDelta(dragAmount * scale * direction)
-                        },
-                        onDragCancel = {
-                            velocityTracker.resetTracking()
-                            state.snapTo(state.collapsedBound)
-                        },
-                        onDragEnd = {
-                            val velocity = -velocityTracker.calculateVelocity().x * scale * direction
-                            velocityTracker.resetTracking()
-                            state.performFling(velocity, onDismiss)
-                        }
-                    )
+                    detectSheetSlideFromStart(state, size.width.toFloat(), isRtl, onDismiss)
                     return@pointerInput
                 }
 
+                val velocityTracker = VelocityTracker()
                 detectVerticalDragGestures(
                     onVerticalDrag = { change, dragAmount ->
                         velocityTracker.addPointerInputChange(change)
@@ -178,6 +160,32 @@ fun BottomSheet(
             )
         }
     }
+}
+
+suspend fun PointerInputScope.detectSheetSlideFromStart(
+    state: BottomSheetState,
+    sheetWidthPx: Float,
+    isRtl: Boolean,
+    onDismiss: (() -> Unit)? = null,
+) {
+    val velocityTracker = VelocityTracker()
+    val scale = state.expandedBound.toPx() / sheetWidthPx
+    val direction = if (isRtl) 1f else -1f
+    detectHorizontalDragGestures(
+        onHorizontalDrag = { change, dragAmount ->
+            velocityTracker.addPointerInputChange(change)
+            state.dispatchRawDelta(dragAmount * scale * direction)
+        },
+        onDragCancel = {
+            velocityTracker.resetTracking()
+            state.performFling(0f, onDismiss)
+        },
+        onDragEnd = {
+            val velocity = -velocityTracker.calculateVelocity().x * scale * direction
+            velocityTracker.resetTracking()
+            state.performFling(velocity, onDismiss)
+        },
+    )
 }
 
 @Stable
@@ -362,8 +370,6 @@ fun rememberBottomSheetState(
     var previousAnchor by rememberSaveable {
         mutableIntStateOf(initialAnchor)
     }
-    // Start at the restored anchor: starting at 0.dp would read as dismissed after a configuration
-    // change, and callers that collapse a dismissed sheet would then close an expanded player.
     val animatable = remember {
         Animatable(
             when (previousAnchor) {

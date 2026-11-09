@@ -403,7 +403,6 @@ fun PlayerQueue(
                         }
                     }
 
-                    // Docked beside the player, the queue bar's more button already opens this menu.
                     if (!docked) {
                         val moreDescription = stringResource(R.string.more_options)
                         TooltipBox(
@@ -1031,10 +1030,6 @@ fun PlayerQueue(
     }
 }
 
-/**
- * The theme's queue bar plus the dialogs and sheets its buttons open. Shown at the bottom of the
- * queue sheet, or under the controls when the queue is docked beside the player.
- */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PlayerQueueBar(
