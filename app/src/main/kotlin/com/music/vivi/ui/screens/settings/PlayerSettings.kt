@@ -52,7 +52,7 @@ import com.music.vivi.constants.CrossfadeCurve
 import com.music.vivi.constants.CrossfadeCurveKey
 import com.music.vivi.constants.CanvasThumbnailAnimationKey
 import com.music.vivi.constants.SpotifyCanvasEnabledKey
-import com.music.vivi.constants.UseNewPlayerDesignKey
+import com.music.vivi.ui.player.fullscreen.rememberUseNewPlayerDesign
 import com.music.vivi.constants.MotionartworkSourceKey
 import com.music.spotify.Spotify
 import com.music.vivi.constants.MotionartworkSource
@@ -238,7 +238,7 @@ fun PlayerSettings(
         SpotifyCanvasEnabledKey,
         defaultValue = false
     )
-    val (useNewPlayerDesign) = rememberPreference(UseNewPlayerDesignKey, false)
+    val useNewPlayerDesign = rememberUseNewPlayerDesign()
     val isSpotifyLoggedIn = Spotify.accessToken != null
 
     // Auto-disable if user logs out of Spotify

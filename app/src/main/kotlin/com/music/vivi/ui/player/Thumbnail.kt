@@ -98,7 +98,7 @@ import com.music.vivi.constants.PlayerThumbnailShadowElevationKey
 import com.music.vivi.constants.PlayerBackgroundStyle
 import com.music.vivi.constants.PlayerBackgroundStyleKey
 import com.music.vivi.constants.PlayerHorizontalPadding
-import com.music.vivi.constants.UseNewPlayerDesignKey
+import com.music.vivi.ui.player.fullscreen.rememberUseNewPlayerDesign
 import com.music.vivi.constants.RotatingThumbnailKey
 import com.music.vivi.constants.SeekExtraSeconds
 import com.music.vivi.constants.SwipeThumbnailKey
@@ -307,7 +307,7 @@ fun Thumbnail(
 
     // Preferences - computed once
     // Disable swipe for Listen Together guests
-    val (useNewPlayerDesign) = rememberPreference(UseNewPlayerDesignKey, false)
+    val useNewPlayerDesign = rememberUseNewPlayerDesign()
     val swipeThumbnailPref by rememberPreference(SwipeThumbnailKey, true)
     val swipeThumbnail = swipeThumbnailPref && !isListenTogetherGuest
     val hidePlayerThumbnail by rememberPreference(HidePlayerThumbnailKey, false)

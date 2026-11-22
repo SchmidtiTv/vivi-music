@@ -128,7 +128,7 @@ import com.music.vivi.constants.ListItemHeight
 import com.music.vivi.constants.PlayerBackgroundStyle
 import com.music.vivi.constants.QueueEditLockKey
 import com.music.vivi.constants.ShowCommentButtonKey
-import com.music.vivi.constants.UseNewPlayerDesignKey
+import com.music.vivi.ui.player.fullscreen.rememberUseNewPlayerDesign
 import com.music.vivi.extensions.metadata
 import com.music.vivi.extensions.move
 import com.music.vivi.extensions.removeWindow
@@ -315,10 +315,7 @@ fun Queue(
 
     var locked by rememberPreference(QueueEditLockKey, defaultValue = true)
 
-    val (useNewPlayerDesign, onUseNewPlayerDesignChange) = rememberPreference(
-        UseNewPlayerDesignKey,
-        defaultValue = false
-    )
+    val useNewPlayerDesign = rememberUseNewPlayerDesign()
     val (showCommentButton) = rememberPreference(
         ShowCommentButtonKey,
         defaultValue = true

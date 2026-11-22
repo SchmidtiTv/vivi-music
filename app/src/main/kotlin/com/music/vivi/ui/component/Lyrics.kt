@@ -198,7 +198,7 @@ import com.music.vivi.constants.LyricsRomanizeSerbianKey
 import com.music.vivi.constants.LyricsRomanizeUkrainianKey
 import com.music.vivi.constants.LyricsScrollKey
 import com.music.vivi.constants.LyricsTextPositionKey
-import com.music.vivi.constants.UseNewPlayerDesignKey
+import com.music.vivi.ui.player.fullscreen.rememberUseNewPlayerDesign
 import com.music.vivi.constants.PlayerBackgroundStyle
 import com.music.vivi.constants.OpenRouterApiKey
 import com.music.vivi.constants.DeeplApiKey
@@ -332,7 +332,7 @@ fun Lyrics(
         key = PlayerBackgroundStyleKey,
         defaultValue = PlayerBackgroundStyle.LIVE_MESH
     )
-    val (useNewPlayerDesign) = rememberPreference(UseNewPlayerDesignKey, defaultValue = false)
+    val useNewPlayerDesign = rememberUseNewPlayerDesign()
 
     val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val isSystemInDarkTheme = isSystemInDarkTheme()

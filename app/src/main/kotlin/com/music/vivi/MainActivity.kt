@@ -176,8 +176,6 @@ import com.music.vivi.constants.SlimNavBarHeight
 import com.music.vivi.constants.SlimNavBarKey
 import com.music.vivi.constants.FloatingNavBarKey
 import com.music.vivi.constants.StopMusicOnTaskClearKey
-import com.music.vivi.constants.UseNewMiniPlayerDesignKey
-import com.music.vivi.constants.UseAppleMiniPlayerKey
 import com.music.vivi.constants.MiniPlayerInRailKey
 import com.music.vivi.db.MusicDatabase
 import com.music.vivi.db.entities.SearchHistory
@@ -199,6 +197,7 @@ import com.music.vivi.ui.component.rememberBottomSheetState
 import com.music.vivi.ui.component.shimmer.ShimmerTheme
 import com.music.vivi.ui.menu.YouTubeSongMenu
 import com.music.vivi.ui.player.BottomSheetPlayer
+import com.music.vivi.ui.player.mini.rememberMiniPlayerTheme
 import com.music.vivi.ui.screens.Screens
 import com.music.vivi.ui.screens.SettingsDropdownMenu
 import com.music.vivi.ui.screens.navigationBuilder
@@ -718,8 +717,7 @@ class MainActivity : ComponentActivity() {
                 }
                 val (slimNav) = rememberPreference(SlimNavBarKey, defaultValue = false)
                 val (floatingNav) = rememberPreference(FloatingNavBarKey, defaultValue = false)
-                val (useNewMiniPlayerDesign) = rememberPreference(UseNewMiniPlayerDesignKey, defaultValue = true)
-                val (useAppleMiniPlayer) = rememberPreference(UseAppleMiniPlayerKey, defaultValue = false)
+                val miniPlayerTheme = rememberMiniPlayerTheme().value
                 val (miniPlayerInRailPref) = rememberPreference(MiniPlayerInRailKey, defaultValue = true)
                 val defaultOpenTab = remember {
                     dataStore[DefaultOpenTabKey].toEnum(defaultValue = NavigationTab.HOME)
@@ -806,7 +804,7 @@ class MainActivity : ComponentActivity() {
                     collapsedBound = if (miniPlayerInRail) 0.dp else bottomInset +
                         (if (!showRail && shouldShowNavigationBar) navPadding else 0.dp) +
                         extraSnackbarHeight +
-                        (if (useNewMiniPlayerDesign || useAppleMiniPlayer) MiniPlayerBottomSpacing else 0.dp) +
+                        (if (miniPlayerTheme.floating) MiniPlayerBottomSpacing else 0.dp) +
                         MiniPlayerHeight,
                     expandedBound = maxHeight,
                 )
@@ -1226,7 +1224,7 @@ class MainActivity : ComponentActivity() {
                                             // Use graphicsLayer for background color changes
                                             .graphicsLayer {
                                                 val progress = playerBottomSheetState.progress
-                                                alpha = if (progress > 0f || (useNewMiniPlayerDesign && !shouldShowNavigationBar) || floatingNav) 0f else 1f
+                                                alpha = if (progress > 0f || (miniPlayerTheme.transparentBottomInset && !shouldShowNavigationBar) || floatingNav) 0f else 1f
                                             }
                                             .background(baseBg)
                                     )
@@ -1251,7 +1249,7 @@ class MainActivity : ComponentActivity() {
                                         // Use graphicsLayer for background color changes
                                         .graphicsLayer {
                                             val progress = playerBottomSheetState.progress
-                                            alpha = if (progress > 0f || (useNewMiniPlayerDesign && !shouldShowNavigationBar)) 0f else 1f
+                                            alpha = if (progress > 0f || (miniPlayerTheme.transparentBottomInset && !shouldShowNavigationBar)) 0f else 1f
                                         }
                                         .background(baseBg)
                                 )
